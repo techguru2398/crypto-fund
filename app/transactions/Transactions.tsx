@@ -93,7 +93,7 @@ const Transactions = () => {
         });
     }
     if (authChecked) fetchhistoryData();
-  }, [authChecked]);
+  }, [authChecked, router]);
 
   if (!authChecked) return null;
 

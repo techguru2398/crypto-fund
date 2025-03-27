@@ -68,7 +68,7 @@ const Investment = () => {
         });
     }
     if (authChecked) fetchPortfolioData();
-  }, [authChecked]);
+  }, [authChecked, router]);
 
   if (!authChecked) return null;
 

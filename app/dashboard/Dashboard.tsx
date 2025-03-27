@@ -59,7 +59,7 @@ const Dashboard = () => {
     };
   
     if (authChecked) fetchNavData();
-  }, [authChecked]);
+  }, [authChecked, router]);
 
   useEffect(() => {
     const fetchAssetBreakdown = async () => {
@@ -108,7 +108,7 @@ const Dashboard = () => {
     };
   
     if (authChecked) fetchAssetBreakdown();
-  }, [authChecked]);
+  }, [authChecked, router]);
   
   if (!authChecked) return null;
 

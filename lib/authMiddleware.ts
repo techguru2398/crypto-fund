@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyJwt } from './auth';
 
-export function withAuth(handler: Function) {
-  return async (req: NextRequest) => {
+type HandlerFunction = (req: NextRequest, user: any) => Promise<NextResponse>;
+
+export function withAuth(handler: HandlerFunction) {
+  return async (req: NextRequest): Promise<NextResponse> => {
     const authHeader = req.headers.get('authorization');
     const token = authHeader?.split(' ')[1];
 
