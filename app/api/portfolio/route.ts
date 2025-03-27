@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { applyCors } from '@/lib/cors';
+import { withAuth } from '@/lib/authMiddleware';
 
-export async function GET(req: NextRequest) {
+async function handler(req: NextRequest) {
   const corsResponse = applyCors(req);
   if (corsResponse) return corsResponse;
 
@@ -40,6 +41,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Failed to fetch portfolio" }, { status: 500 });
   }
 }
+
+export const GET = withAuth(handler);
 
 export function OPTIONS(req: NextRequest) {
   return applyCors(req) ?? NextResponse.json({});

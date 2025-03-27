@@ -1,20 +1,35 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { User, Mail, Lock, Bell, ExternalLink, LogOut, ChevronRight } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import { useRouter } from "next/navigation";
 
 const Account = () => {
+  const router = useRouter();
   const [user] = useState({
     name: 'Alex Johnson',
     email: 'alex@example.com',
     createdAt: 'January 2023',
     notificationsEnabled: true
   });
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/signin");
+    } else {
+      setAuthChecked(true);
+    }
+  }, [router]);
+
+  if (!authChecked) return null;
   
   const handleLogout = () => {
     console.log('Logout clicked');
-    // Implement logout functionality
+    localStorage.removeItem("token"); // clear expired token
+    router.push("/signin");
   };
 
   // Animation variants

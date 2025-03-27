@@ -7,6 +7,7 @@ import { TrendingUp, PieChart, ShieldCheck } from 'lucide-react';
 
 export default function Home() {
   const [scrollPosition, setScrollPosition] = useState(0);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   useEffect(() => {
     const handleScroll = () => {
@@ -17,12 +18,50 @@ export default function Home() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    setIsAuthenticated(false);
+    window.location.href = "/";
+  };
+
   const parallaxValue = scrollPosition * 0.3;
   
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
       <section className="relative h-screen overflow-hidden flex flex-col items-center justify-center px-6 text-center">
+        <div className="fixed top-4 right-16 flex items-center justify-end gap-4">
+          {isAuthenticated ? (
+            <button
+              onClick={handleLogout}
+              className="bg-destructive text-white px-8 py-3 rounded-lg font-medium"
+            >
+              Log Out
+            </button>
+          ) : (
+            <>
+              <Link
+                href="/signin"
+                className="bg-secondary text-secondary-foreground px-8 py-3 rounded-lg font-medium"
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/signup"
+                className="bg-primary text-primary-foreground px-8 py-3 rounded-lg font-medium shadow-lg"
+              >
+                Sign Up
+              </Link>
+            </>
+          )}
+        </div>
         <motion.div 
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}

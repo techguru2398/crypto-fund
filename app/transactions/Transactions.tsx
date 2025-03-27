@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Search, Filter } from 'lucide-react';
 import TransactionItem from '@/components/TransactionItem';
 import Navbar from '@/components/Navbar';
+import { useRouter } from "next/navigation";
 
 interface Transaction {
   id: string;
@@ -15,50 +16,86 @@ interface Transaction {
 }
 
 const Transactions = () => {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filter, setFilter] = useState<'all' | 'deposit' | 'withdrawal'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/signin");
+    } else {
+      setAuthChecked(true);
+    }
+  }, [router]);
 
   useEffect(() => {
     // Replace the mock API fetch with a real fetch from the portfolio endpoint.
     // The portfolio endpoint returns { email, investments, redemptions }
-    const email = "jaide@atmax.in"; // adjust as needed
-    fetch(`api/history?email=${encodeURIComponent(email)}`)
-      .then((res) => res.json())
-      .then((data) => {
-      
-        // Map investments and redemptions to a unified transaction format.
-        const investmentTransactions: Transaction[] = data.investments.map((inv: any, index: number) => ({
-          id: `inv-${index}-${inv.timestamp}`,
-          type: 'deposit',
-          date: new Date(inv.timestamp).toLocaleDateString(),
-          amount: `$${parseFloat(inv.amount_usd).toFixed(2)}`,
-          status: 'completed',
-          description: `Investment in ${inv.asset_id}`
-        }));
-
-        const redemptionTransactions: Transaction[] = data.redemptions.map((red: any, index: number) => ({
-          id: `red-${index}-${red.timestamp}`,
-          type: 'withdrawal',
-          date: new Date(red.timestamp).toLocaleDateString(),
-          amount: `$${parseFloat(red.value_usd).toFixed(2)}`,
-          status: 'completed',
-          description: `Redemption`
-        }));
-
-        // Combine the two arrays and sort by date descending
-        const combined = [...investmentTransactions, ...redemptionTransactions].sort((a, b) => {
-          return new Date(b.date).getTime() - new Date(a.date).getTime();
-        });
-        setTransactions(combined);
+    const fetchhistoryData = () => {
+      const email = "jaide@atmax.in"; // adjust as needed
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn('No JWT token found');
         setIsLoading(false);
+        return;
+      }
+      fetch(`/api/history?email=${encodeURIComponent(email)}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       })
-      .catch((err) => {
-        console.error("Error fetching transaction history:", err);
-        setIsLoading(false);
-      });
-  }, []);
+        .then((res) => {
+          if (res.status === 401) {
+            // Optional: handle expired token
+            localStorage.removeItem('token');
+            router.push('/signin');
+            throw new Error('Unauthorized');
+          }
+          return res.json();
+        })
+        .then((data) => {
+        
+          // Map investments and redemptions to a unified transaction format.
+          const investmentTransactions: Transaction[] = data.investments.map((inv: any, index: number) => ({
+            id: `inv-${index}-${inv.timestamp}`,
+            type: 'deposit',
+            date: new Date(inv.timestamp).toLocaleDateString(),
+            amount: `$${parseFloat(inv.amount_usd).toFixed(2)}`,
+            status: 'completed',
+            description: `Investment in ${inv.asset_id}`
+          }));
+
+          const redemptionTransactions: Transaction[] = data.redemptions.map((red: any, index: number) => ({
+            id: `red-${index}-${red.timestamp}`,
+            type: 'withdrawal',
+            date: new Date(red.timestamp).toLocaleDateString(),
+            amount: `$${parseFloat(red.value_usd).toFixed(2)}`,
+            status: 'completed',
+            description: `Redemption`
+          }));
+
+          // Combine the two arrays and sort by date descending
+          const combined = [...investmentTransactions, ...redemptionTransactions].sort((a, b) => {
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
+          });
+          setTransactions(combined);
+          setIsLoading(false);
+        })
+        .catch((err) => {
+          console.error("Error fetching transaction history:", err);
+          setIsLoading(false);
+        });
+    }
+    if (authChecked) fetchhistoryData();
+  }, [authChecked]);
+
+  if (!authChecked) return null;
 
   const filteredTransactions = transactions.filter((tx) => {
     const matchesFilter = filter === 'all' || tx.type === filter;

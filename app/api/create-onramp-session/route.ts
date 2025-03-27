@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { applyCors } from '@/lib/cors'; // ✅ Correct import
+import { applyCors } from '@/lib/cors';
+import { withAuth } from '@/lib/authMiddleware';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2022-11-15', // or your project's Stripe API version
@@ -14,7 +15,7 @@ const OnrampSessionResource = StripeResource.extend({
   }),
 });
 
-export async function POST(req: NextRequest) {
+async function handler(req: NextRequest, user: any) {
   const corsResponse = applyCors(req);
   if (corsResponse) return corsResponse;
 
@@ -37,6 +38,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create onramp session' }, { status: 500 });
   }
 }
+
+export const POST = withAuth(handler);
 
 export function OPTIONS(req: NextRequest) {
   return applyCors(req) ?? NextResponse.json({});

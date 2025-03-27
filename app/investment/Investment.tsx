@@ -5,9 +5,11 @@ import { useSearchParams } from 'next/navigation';
 import { PiggyBank, ArrowRight, CreditCard, Landmark, RefreshCw } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { loadStripeOnramp } from '@stripe/crypto'; // Import loadStripeOnramp from Stripe
+import { useRouter } from "next/navigation";
 
 
 const Investment = () => {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialType = searchParams.get('type') === 'withdraw' ? 'withdraw' : 'deposit';
   
@@ -22,19 +24,53 @@ const Investment = () => {
   // State to store portfolio data from API
   const [portfolioData, setPortfolioData] = useState(null);
   const [showOnrampModal, setShowOnrampModal] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/signin");
+    } else {
+      setAuthChecked(true);
+    }
+  }, [router]);
 
   // Fetch portfolio data on component mount (using a hardcoded email for now)
   useEffect(() => {
-    const email = "jaide@atmax.in"; // adjust as needed
-    fetch(`api/portfolio?email=${encodeURIComponent(email)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setPortfolioData(data);
+    const fetchPortfolioData = () => {
+      const email = "jaide@atmax.in"; // adjust as needed
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn('No JWT token found');
+        return;
+      }
+      fetch(`/api/portfolio?email=${encodeURIComponent(email)}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       })
-      .catch((err) => {
-        console.error("Error fetching portfolio data:", err);
-      });
-  }, []);
+        .then((res) => {
+          if (res.status === 401) {
+            // Optional: handle expired token
+            localStorage.removeItem('token');
+            router.push('/signin');
+            throw new Error('Unauthorized');
+          }
+          return res.json();
+        })
+        .then((data) => {
+          setPortfolioData(data);
+        })
+        .catch((err) => {
+          console.error("Error fetching portfolio data:", err);
+        });
+    }
+    if (authChecked) fetchPortfolioData();
+  }, [authChecked]);
+
+  if (!authChecked) return null;
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/[^0-9.]/g, '');
@@ -53,9 +89,18 @@ const Investment = () => {
   const startOnrampFlow = async () => {
     try {
       // 1. Fetch the client secret from your backend
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.warn('No JWT token found');
+        setIsSubmitting(false);
+        return;
+      }
       const res = await fetch("/api/create-onramp-session", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
         body: JSON.stringify({
           transaction_details: {
             destination_currency: "usdc",
@@ -64,7 +109,11 @@ const Investment = () => {
           },
         }),
       });
-  
+      if (res.status === 401) {
+        localStorage.removeItem("token"); // clear expired token
+        router.push("/signin");           // redirect
+        return;
+      }
       const data = await res.json();
       const clientSecret = data.client_secret;
   

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
-import { applyCors } from '@/lib/cors'; // Adjust path as needed
+import { applyCors } from '@/lib/cors';
+import { withAuth } from '@/lib/authMiddleware';
 
 const COINGECKO_MAP: Record<string, string> = {
   BTC_TEST: 'bitcoin',
@@ -9,7 +10,7 @@ const COINGECKO_MAP: Record<string, string> = {
 
 const ASSET_IDS = ['BTC_TEST', 'LTC_TEST'];
 
-export async function GET(req: NextRequest) {
+async function handler(req: NextRequest, user: any) {
   const corsResponse = applyCors(req);
   if (corsResponse) return corsResponse;
 
@@ -39,6 +40,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch asset breakdown' }, { status: 500 });
   }
 }
+
+export const GET = withAuth(handler);
 
 export function OPTIONS(req: NextRequest) {
   return applyCors(req) ?? NextResponse.json({});
