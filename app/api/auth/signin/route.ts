@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
 
   try {
-    const result = await pool.query(`SELECT * FROM users WHERE email = $1`, [email]);
+    const result = await pool.query(`SELECT * FROM user_info WHERE email = $1`, [email]);
     const user = result.rows[0];
     if (!user || !(await verifyPassword(password, user.password_hash))) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });

@@ -28,17 +28,18 @@ const fireblocks = new FireblocksSDK(
 
 // Stripe requires raw body for webhook signature verification
 export async function POST(req: NextRequest) {
+  console.log("sig: ", req);
   const sig = req.headers.get('stripe-signature');
 
   if (!sig) {
     return NextResponse.json({ error: 'Missing Stripe signature' }, { status: 400 });
   }
 
-  const rawBody = await req.arrayBuffer();
+  const rawBody = await req.text();
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(Buffer.from(rawBody), sig, process.env.STRIPE_WEBHOOK_SECRET!);
+    event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET!);
   } catch (err: any) {
     console.error('❌ Stripe webhook signature error:', err.message);
     return new NextResponse(`Webhook Error: ${err.message}`, { status: 400 });
@@ -74,6 +75,12 @@ export async function POST(req: NextRequest) {
       console.error(`❌ Fireblocks error: ${err.message}`);
       return NextResponse.json({ error: 'Fireblocks transfer failed' }, { status: 500 });
     }
+  } else if (event.type === 'checkout.session.completed') {
+    const session = event.data.object as Stripe.Checkout.Session;
+
+    // ✅ Store payment info in DB
+    console.log('Payment received:', session.amount_total, session.customer_email);
+    // You can now log to investment_log and later convert to USDC via Fireblocks
   }
 
   return new NextResponse('Webhook received', { status: 200 });

@@ -98,7 +98,7 @@ async function processSIP(email: string, amountUSD: number, nav: number) {
 export async function runSIPForDueUsers() {
   const today = new Date().toISOString().split('T')[0];
   const nav = await getLatestNAV();
-  const sipUsers = await pool.query(`SELECT * FROM sip_schedule WHERE next_run <= $1`, [today]);
+  const sipUsers = await pool.query(`SELECT * FROM sip_schedule WHERE next_run <= $1 AND status = 'active'`, [today]);
 
   for (const user of sipUsers.rows) {
     try {

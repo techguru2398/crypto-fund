@@ -21,17 +21,16 @@ async function handler(req: NextRequest, user: any) {
 
   try {
     const body = await req.json();
-    const { transaction_details } = body;
-
+    const { destination_amount } = body;
     const onrampSession = await new OnrampSessionResource(stripe).create({
-        transaction_details: {
-          destination_currency: transaction_details.destination_currency,
-          destination_exchange_amount: transaction_details.destination_exchange_amount,
-          destination_network: transaction_details.destination_network,
-        },
-        customer_ip_address: req.headers.get('x-forwarded-for') || '',
+      destination_amount: destination_amount,
+      destination_currency: "usdc",
+      destination_currencies: ["usdc"],
+      destination_network: "polygon",
+      destination_networks: ["polygon"],
+      customer_ip_address: req.headers.get('x-forwarded-for') || '',
     }) as unknown as { client_secret: string; [key: string]: any };
-  
+    console.log(onrampSession);
       return NextResponse.json({ client_secret: onrampSession.client_secret });
   } catch (err: any) {
     console.error('❌ Stripe Onramp error:', err.message);
