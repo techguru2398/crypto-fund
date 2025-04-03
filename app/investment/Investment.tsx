@@ -397,7 +397,7 @@ const Investment = () => {
 
   const savePaymentMethod = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!stripe || !elements || !clientSecret) return;
+    if (!stripe || !elements || !stripeCustomerClientSecret) return;
     setLoading(true);
     const token = localStorage.getItem("token");
     if (!token) {
@@ -411,12 +411,15 @@ const Investment = () => {
           card: elements.getElement(CardElement)!,
         },
       });
-  
+      console.log("payment_method_id: ", result.setupIntent.payment_method);
       if (result.setupIntent?.payment_method) {
         await fetch('/api/save-payment-method', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, payment_method_id: result.setupIntent.payment_method }),
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ payment_method_id: result.setupIntent.payment_method }),
         });
         toast({
           title: "Success",
@@ -432,7 +435,7 @@ const Investment = () => {
       }
     } catch (err: any) {
       toast({
-        title: "Create Sip failed",
+        title: "Failed",
         description: err.message,
         variant: "destructive",
       });
@@ -454,7 +457,6 @@ const Investment = () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({email: email}),
     })
     const data = await res.json();
     setStripeCustomerClientSecret(data.client_secret);
@@ -1128,7 +1130,7 @@ const Investment = () => {
                     disabled={loading}
                     className="w-full rounded-md bg-primary px-6 py-3 text-base font-medium text-white transition duration-300 hover:bg-primary/90"
                   >
-                    {loading ? "Creating..." : "Create SIP"}
+                    {loading ? "Saving..." : "Save Card"}
                   </button>
                 </div>
               </form>
