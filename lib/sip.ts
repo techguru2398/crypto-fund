@@ -4,6 +4,12 @@ import { pool } from './db';
 import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
+import Stripe from 'stripe';
+import { addDays, addMonths } from 'date-fns';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2022-11-15',
+});
 
 const fireblocks = new FireblocksSDK(
   fs.readFileSync(path.resolve(process.env.FIREBLOCKS_SECRET_PATH!), 'utf8'),
@@ -45,77 +51,72 @@ async function getLatestNAV(): Promise<number> {
   return parseFloat(navRes.rows[0].nav);
 }
 
-async function processSIP(email: string, amountUSD: number, nav: number) {
-  const newUnits = amountUSD / nav;
-  const now = new Date().toISOString();
-
-  await pool.query(
-    `INSERT INTO user_units (email, units, last_updated)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (email) DO UPDATE SET units = user_units.units + $2, last_updated = $3`,
-    [email, newUnits, now]
-  );
-
-  const sourceVaultId = await getVaultIdByName(VAULT_NAMES.treasury);
-  const destinationVaultId = await getVaultIdByName(VAULT_NAMES.main);
-
-  for (const assetId of Object.keys(INDEX_ALLOCATION)) {
-    const share = INDEX_ALLOCATION[assetId];
-    const assetUSD = amountUSD * share;
-    const price = await getPriceUSD(assetId);
-    const amount = assetUSD / price;
-
-    await fireblocks.createTransaction({
-      assetId,
-      amount: amount.toFixed(8),
-      source: {
-        type: PeerType.VAULT_ACCOUNT,
-        id: sourceVaultId,
-      },
-      destination: {
-        type: PeerType.VAULT_ACCOUNT,
-        id: destinationVaultId,
-      },
-      note: `SIP auto-allocation for ${email}`,
+async function processSIP(sip: any, nav: number) {
+  const amountCents = Math.round(Number(sip.amount_usd) * 100);
+  const units = Number(sip.amount_usd) / Number(nav);
+  try {
+    await stripe.paymentIntents.create({
+      amount: amountCents,
+      currency: 'usd',
+      customer: sip.stripe_customer_id,
+      payment_method: sip.stripe_payment_method_id,
+      confirm: true,
+      off_session: true,
+      metadata: {
+        type: 'sip',
+        sip_id: sip.id,
+        user_email: sip.email
+      }
     });
+    const now = new Date().toISOString();
+    let nextRun = new Date();
+    const freq = sip.frequency || 'monthly';
+    if (freq === 'daily') nextRun = addDays(nextRun, 1);
+    else if (freq === 'weekly') nextRun = addDays(nextRun, 7);
+    else nextRun = addMonths(nextRun, 1);
+
+    // await pool.query(
+    //   `UPDATE sip_schedule SET next_run = $1 WHERE id = $2`,
+    //   [nextRun, sip.id]
+    // );
+    // await pool.query(
+    //   'INSERT INTO investment_log (email, amount_usd, nav, units, timestamp, status, is_sip) VALUES ($1, $2, $3, $4)',
+    //   [sip.email, sip.amount_usd, nav, units, now, 'pending', true]
+    // );
+
+    // await pool.query(
+    //   `INSERT INTO user_units (email, units, last_updated)
+    //    VALUES ($1, $2, $3)
+    //    ON CONFLICT (email) DO UPDATE SET units = user_units.units + $2, last_updated = $3`,
+    //   [sip.email, units, now]
+    // );
+    console.log(`✅ SIP executed for ${sip.email}: $${sip.amount_usd} → ${units.toFixed(4)} units`);
+  } catch (err) {
+    console.error('Payment failed for user', sip.email, err);
   }
-
-  await pool.query(
-    `INSERT INTO investment_ledger (email, amount_usd, asset_id, asset_share, asset_value, units)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
-    [email, amountUSD, 'INDEX', 1.0, amountUSD, newUnits]
-  );
-
-  await pool.query(
-    `INSERT INTO investment_log (email, timestamp, amount_usd, units, nav)
-     VALUES ($1, NOW(), $2, $3, $4)`,
-    [email, amountUSD, newUnits, nav]
-  );
-
-  console.log(`✅ SIP executed for ${email}: $${amountUSD} → ${newUnits.toFixed(4)} units`);
 }
 
 export async function runSIPForDueUsers() {
   const today = new Date().toISOString().split('T')[0];
   const nav = await getLatestNAV();
-  const sipUsers = await pool.query(`SELECT * FROM sip_schedule WHERE next_run <= $1 AND status = 'active'`, [today]);
-
-  for (const user of sipUsers.rows) {
+  // const sipUsers = await pool.query(`
+  //   SELECT s.*, u.stripe_customer_id, u.stripe_payment_method_id 
+  //   FROM sip_schedule s 
+  //   JOIN user_info u ON u.email = s.email 
+  //   WHERE s.next_run <= NOW() AND s.status = 'active'
+  // `);
+  const sipUsers = await pool.query(`
+    SELECT s.*, u.stripe_customer_id, u.stripe_payment_method_id 
+    FROM sip_schedule s 
+    JOIN user_info u ON u.email = s.email 
+    WHERE s.status = 'active'
+  `);
+  // console.log("sipusers: ", sipUsers);
+  for (const sip of sipUsers.rows) {
     try {
-      await processSIP(user.email, parseFloat(user.amount_usd), nav);
-
-      let nextRun = new Date();
-      const freq = user.frequency || 'monthly';
-      if (freq === 'daily') nextRun.setDate(nextRun.getDate() + 1);
-      else if (freq === 'weekly') nextRun.setDate(nextRun.getDate() + 7);
-      else nextRun.setMonth(nextRun.getMonth() + 1);
-
-      await pool.query(
-        `UPDATE sip_schedule SET next_run = $1 WHERE email = $2`,
-        [nextRun, user.email]
-      );
+      await processSIP(sip, nav);
     } catch (err: any) {
-      console.error(`❌ SIP failed for ${user.email}:`, err.message);
+      console.error(`❌ SIP failed for ${sip.email}:`, err.message);
     }
   }
 }

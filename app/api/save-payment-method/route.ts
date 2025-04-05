@@ -17,10 +17,10 @@ async function handler(req: NextRequest, user: any) {
     try {
         const { payment_method_id } = await req.json();
         console.log("payment: ", payment_method_id);
-        // await pool.query(
-        //     'UPDATE user_info SET stripe_payment_method_id = $1 WHERE email = $2',
-        //     [payment_method_id, email]
-        // );
+        await pool.query(
+            'UPDATE user_info SET stripe_payment_method_id = $1 WHERE email = $2',
+            [payment_method_id, email]
+        );
         return NextResponse.json({ success: true });
       } catch (err: any) {
         console.error("❌ Save stripe payment method error:", err.message);

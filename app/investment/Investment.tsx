@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSearchParams } from 'next/navigation';
-import { PiggyBank, ArrowRight, CreditCard, Landmark, RefreshCw } from 'lucide-react';
+import { PiggyBank, ArrowRight, CreditCard, Landmark, RefreshCw, BadgeDollarSign, SquareActivity } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { loadStripeOnramp } from '@stripe/crypto'; // Import loadStripeOnramp from Stripe
 import { useRouter } from "next/navigation";
@@ -38,7 +38,7 @@ const Investment = () => {
   
   const [type, setType] = useState<'deposit' | 'withdraw'>(initialType);
   const [amount, setAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<string>('');
+  const [inputMethod, setInputMethod] = useState<string>('');
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [transactionComplete, setTransactionComplete] = useState(false);
@@ -64,6 +64,7 @@ const Investment = () => {
   const stripe = useStripe();
   const elements = useElements();
   const [stripeCustomerClientSecret, setStripeCustomerClientSecret] = useState('');
+  const [paymentMethodExist, setPaymentMethodExist] = useState(false);
   const { toast } = useToast();
 
   
@@ -83,6 +84,42 @@ const Investment = () => {
       setEmail(decoded.email);
     }
   }, [router]);
+
+   // Fetch payment method state on component mount
+   useEffect(() => {
+    const fetchPaymentMethodState = () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn('No JWT token found');
+        router.push("/signin");
+        return;
+      }
+      fetch(`/api/sip/get-payment-method-state`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+        .then((res) => {
+          if (res.status === 401) {
+            // Optional: handle expired token
+            localStorage.removeItem('token');
+            router.push('/signin');
+            throw new Error('Unauthorized');
+          }
+          return res.json();
+        })
+        .then((data) => {
+          console.log("exist :", data.exist);
+          setPaymentMethodExist(data.exist);
+        })
+        .catch((err) => {
+          console.error("Error fetching sip data:", err);
+        });
+    }
+    if (authChecked) fetchPaymentMethodState();
+  }, [authChecked, router]); 
 
   // Fetch portfolio data on component mount (using a hardcoded email for now)
   useEffect(() => {
@@ -254,6 +291,7 @@ const Investment = () => {
         },
         body: JSON.stringify({
           destination_amount: parseFloat(amount),
+          input_method: inputMethod
         }),
       });
       if (res.status === 401) {
@@ -426,6 +464,7 @@ const Investment = () => {
           description: "Card saved successfully!'",
         });
         setShowStripePaymentModal(false);
+        setPaymentMethodExist(true);
       } else {
         toast({
           title: "Failed",
@@ -444,14 +483,14 @@ const Investment = () => {
     }
   };
 
-  const createCustomer = async () => {
+  const getClientSecret = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
       console.warn('No JWT token found');
       router.push("/signin");
       return;
     }
-    const res = await fetch('/api/create-customer', {
+    const res = await fetch('/api/get-client-secret', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -465,7 +504,7 @@ const Investment = () => {
 
   const resetForm = () => {
     setAmount('');
-    setPaymentMethod('');
+    setInputMethod('');
     setStep(1);
     setTransactionComplete(false);
   };
@@ -582,19 +621,60 @@ const Investment = () => {
                       </div>
                     </div>
                     <div className="flex justify-between text-sm text-muted-foreground">
-                      <span className={step >= 1 ? 'text-primary font-medium' : ''}>Amount</span>
-                      <span className={step >= 2 ? 'text-primary font-medium' : ''}>Payment Method</span>
+                      <span className={step >= 1 ? 'text-primary font-medium' : ''}>Input Method</span>
+                      <span className={step >= 2 ? 'text-primary font-medium' : ''}>Amount</span>
                     </div>
                   </div>
-                  
+
                   {step === 1 && (
+                    <motion.div
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <label className="block text-sm font-medium mb-4">
+                        Select your input method
+                      </label>
+                      
+                      <div className="space-y-3 mb-6">
+                        {[
+                          { id: 'fiat', label: 'Enter the amount of fiat to invest.', icon: <BadgeDollarSign size={20} /> },
+                          { id: 'unit', label: 'Enter the number of units to buy.', icon: <SquareActivity size={20} /> },
+                        ].map((method) => (
+                          <div
+                            key={method.id}
+                            onClick={() => setInputMethod(method.id)}
+                            className={`flex items-center p-4 border rounded-lg cursor-pointer transition-colors ${
+                              inputMethod === method.id
+                                ? 'border-primary bg-primary/10'
+                                : 'border-input hover:bg-secondary/50'
+                            }`}
+                          >
+                            <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mr-3">
+                              {method.icon}
+                            </div>
+                            <span className="font-medium">{method.label}</span>
+                            {inputMethod === method.id && (
+                              <div className="ml-auto w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                  
+                  {step === 2 && ( inputMethod == 'fiat' ? (
                     <motion.div
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3 }}
                     >
                       <label className="block text-sm font-medium mb-2">
-                        Enter {type === 'deposit' ? 'investment' : 'withdrawal'} amount
+                        Enter the amount of fiat to {type === 'deposit' ? 'invest' : 'withdraw'}.
                       </label>
                       <div className="relative mb-6">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -620,72 +700,45 @@ const Investment = () => {
                           </button>
                         ))}
                       </div>
-                    </motion.div>
-                  )}
-                  
-                  {step === 2 && (
+                    </motion.div> ) : (
                     <motion.div
-                      initial={{ opacity: 0, x: 20 }}
+                      initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3 }}
                     >
-                      <label className="block text-sm font-medium mb-4">
-                        Select payment method
+                      <label className="block text-sm font-medium mb-2">
+                        Enter the number of units to {type === 'deposit' ? 'buy' : 'sell'}.
                       </label>
+                      <div className="relative mb-6">
+                        <input
+                          type="text"
+                          value={amount}
+                          onChange={handleAmountChange}
+                          placeholder="0"
+                          className="bg-background pl-8 pr-4 py-3 border border-input rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        />
+                      </div>
                       
-                      <div className="space-y-3 mb-6">
-                        {[
-                          { id: 'card', label: 'Credit/Debit Card', icon: <CreditCard size={20} /> },
-                          { id: 'bank', label: 'Bank Transfer', icon: <Landmark size={20} /> },
-                        ].map((method) => (
-                          <div
-                            key={method.id}
-                            onClick={() => setPaymentMethod(method.id)}
-                            className={`flex items-center p-4 border rounded-lg cursor-pointer transition-colors ${
-                              paymentMethod === method.id
-                                ? 'border-primary bg-primary/10'
-                                : 'border-input hover:bg-secondary/50'
-                            }`}
+                      <div className="flex flex-wrap gap-2 mb-6">
+                        {['1', '5', '10', '50'].map((preset) => (
+                          <button
+                            key={preset}
+                            onClick={() => setAmount(preset)}
+                            className="px-4 py-2 border border-input rounded-lg hover:bg-secondary transition-colors"
                           >
-                            <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mr-3">
-                              {method.icon}
-                            </div>
-                            <span className="font-medium">{method.label}</span>
-                            {paymentMethod === method.id && (
-                              <div className="ml-auto w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              </div>
-                            )}
-                          </div>
+                            {preset}
+                          </button>
                         ))}
                       </div>
-                      
-                      <div className="p-4 bg-secondary/50 rounded-lg mb-6">
-                        <div className="flex justify-between mb-2">
-                          <span className="text-muted-foreground">Amount</span>
-                          <span className="font-medium">${amount}</span>
-                        </div>
-                        <div className="flex justify-between mb-2">
-                          <span className="text-muted-foreground">Fee</span>
-                          <span className="font-medium">$0.00</span>
-                        </div>
-                        <div className="border-t border-border my-2 pt-2">
-                          <div className="flex justify-between">
-                            <span className="font-medium">Total</span>
-                            <span className="font-medium">${amount}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
+                    </motion.div> )
                   )}
+                  
                   
                   <button
                     onClick={handleContinue}
                     disabled={
-                      (step === 1 && (!amount || parseFloat(amount) <= 0)) ||
-                      (step === 2 && !paymentMethod) ||
+                      (step === 1 && !inputMethod) ||
+                      (step === 2 && (!amount || parseFloat(amount) <= 0)) ||
                       isSubmitting
                     }
                     className="w-full flex items-center justify-center bg-primary text-primary-foreground px-6 py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -720,9 +773,16 @@ const Investment = () => {
                   <div className="flex justify-between">
                     <span className="font-medium">There is no plan</span>
                   </div>
-                  <div className="border-t border-border my-2 pt-2 flex justify-end">
+                  <div className="border-t border-border my-2 pt-2 flex justify-end gap-2">
                     <button
                       className="bg-primary text-primary-foreground px-5 py-1 rounded-lg font-medium shadow-lg"
+                      onClick={getClientSecret}
+                    >
+                      {!paymentMethodExist ? 'Save card' : 'Edit card' } 
+                    </button>
+                    <button
+                      className="bg-primary text-primary-foreground px-5 py-1 rounded-lg font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={!paymentMethodExist}
                       onClick={onShowCreateSipModal}
                     >
                       Create plan
@@ -732,7 +792,7 @@ const Investment = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Amount</span>
-                    <span className="font-medium">{sipData[0].amount_usd}</span>
+                    <span className="font-medium">${sipData[0].amount_usd}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Frequency</span>
@@ -757,12 +817,13 @@ const Investment = () => {
                   <div className="border-t border-border my-2 pt-2 flex justify-end gap-2">
                     <button
                       className="bg-primary text-primary-foreground px-5 py-1 rounded-lg font-medium shadow-lg"
-                      onClick={createCustomer}
+                      onClick={getClientSecret}
                     >
-                      Create customer 
+                      {!paymentMethodExist ? 'Save card' : 'Edit card' } 
                     </button>
                     <button
-                      className="bg-primary text-primary-foreground px-5 py-1 rounded-lg font-medium shadow-lg"
+                      className="bg-primary text-primary-foreground px-5 py-1 rounded-lg font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={!paymentMethodExist}
                       onClick={onShowEditSipModal}
                     >
                       Edit plan
@@ -869,24 +930,29 @@ const Investment = () => {
                   <label htmlFor="amount" className="block text-sm font-medium mb-2">
                     Amount
                   </label>
-                  <input
-                    type="number"
-                    id="amount"
-                    name="amount"
-                    value={editSipData.amount}
-                    onChange={(e) =>
-                      setEditSipData({
-                        ...editSipData,
-                        amount: Number(e.target.value),
-                      })
-                    }
-                    placeholder="Enter amount"
-                    required
-                    step="0.01"
-                    min="0.01"
-                    className="w-full rounded-md border border-muted bg-[#2C303B] px-4 py-3 text-base text-gray-100 outline-none transition duration-300 focus:border-primary"
-                  />
-                </div>
+                  <div className="relative mb-6">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-gray-500">$</span>
+                    </div>
+                    <input
+                      type="number"
+                      id="amount"
+                      name="amount"
+                      value={editSipData.amount}
+                      onChange={(e) =>
+                        setEditSipData({
+                          ...editSipData,
+                          amount: Number(e.target.value),
+                        })
+                      }
+                      placeholder="Enter amount"
+                      required
+                      step="0.01"
+                      min="0.01"
+                      className="bg-background pl-8 pr-4 py-3 border border-input rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      />
+                      </div>
+                  </div>
 
                 <div>
                   <label htmlFor="frequency" className="block text-sm font-medium mb-2">
@@ -903,7 +969,7 @@ const Investment = () => {
                       })
                     }
                     required
-                    className="w-full rounded-md border border-muted bg-[#2C303B] px-4 py-3 text-base text-gray-100 outline-none transition duration-300 focus:border-primary"
+                    className="bg-background px-4 py-3 border border-input rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
                   >
                     <option value="" disabled>
                       Select frequency
@@ -935,10 +1001,10 @@ const Investment = () => {
                     onClick={() => setShowCalendar(!showCalendar)}
                     placeholder="Select a date"
                     required
-                    className="w-full rounded-md border border-muted bg-[#2C303B] px-4 py-3 text-base text-gray-100 outline-none transition duration-300 focus:border-primary"
+                    className="bg-background px-4 py-3 border border-input rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
                   {showCalendar && (
-                    <div className="absolute z-50 mt-2 bg-[#1F1F2B] p-4 rounded-md shadow-md">
+                    <div className="absolute z-50 bottom-full bg-[#1F1F2B] p-4 rounded-md shadow-md">
                       <Calendar
                         mode="single"
                         selected={editSipData.startDate}
@@ -988,23 +1054,28 @@ const Investment = () => {
                   <label htmlFor="amount" className="block text-sm font-medium mb-2">
                     Amount
                   </label>
-                  <input
-                    type="number"
-                    id="amount"
-                    name="amount"
-                    value={editSipData.amount}
-                    onChange={(e) =>
-                      setEditSipData({
-                        ...editSipData,
-                        amount: Number(e.target.value),
-                      })
-                    }
-                    placeholder="Enter amount"
-                    step="0.01"
-                    min="0.01"
-                    required
-                    className="w-full rounded-md border border-muted bg-[#2C303B] px-4 py-3 text-base text-gray-100 outline-none transition duration-300 focus:border-primary"
-                  />
+                  <div className="relative mb-6">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-gray-500">$</span>
+                    </div>
+                    <input
+                      type="number"
+                      id="amount"
+                      name="amount"
+                      value={editSipData.amount}
+                      onChange={(e) =>
+                        setEditSipData({
+                          ...editSipData,
+                          amount: Number(e.target.value),
+                        })
+                      }
+                      placeholder="Enter amount"
+                      step="0.01"
+                      min="0.01"
+                      required
+                      className="bg-background pl-8 pr-4 py-3 border border-input rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -1022,7 +1093,7 @@ const Investment = () => {
                       })
                     }
                     required
-                    className="w-full rounded-md border border-muted bg-[#2C303B] px-4 py-3 text-base text-gray-100 outline-none transition duration-300 focus:border-primary"
+                    className="bg-background px-4 py-3 border border-input rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
                   >
                     <option value="" disabled>
                       Select frequency
@@ -1048,7 +1119,7 @@ const Investment = () => {
                       })
                     }
                     required
-                    className="w-full rounded-md border border-muted bg-[#2C303B] px-4 py-3 text-base text-gray-100 outline-none transition duration-300 focus:border-primary"
+                    className="bg-background px-4 py-3 border border-input rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
                   >
                     <option value="" disabled>
                       Select status
@@ -1074,10 +1145,10 @@ const Investment = () => {
                     onClick={() => setShowCalendar(!showCalendar)}
                     placeholder="Select a date"
                     required
-                    className="w-full rounded-md border border-muted bg-[#2C303B] px-4 py-3 text-base text-gray-100 outline-none transition duration-300 focus:border-primary"
+                    className="bg-background px-4 py-3 border border-input rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
                   {showCalendar && (
-                    <div className="absolute z-50 mt-2 bg-[#1F1F2B] p-4 rounded-md shadow-md">
+                    <div className="absolute z-50 bottom-full bg-[#1F1F2B] p-4 rounded-md shadow-md">
                       <Calendar
                         mode="single"
                         selected={editSipData.startDate}

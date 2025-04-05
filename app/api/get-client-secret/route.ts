@@ -13,19 +13,26 @@ async function handler(req: NextRequest, user: any) {
     if (corsResponse) return corsResponse;
     
     const email = user.email;
-
-    const customer = await stripe.customers.create({ email });
-    console.log("customer id: ", customer.id);
+    const result = await pool.query(`
+        SELECT stripe_customer_id FROM user_info
+    `);
+  
+    let customerId = result.rows[0].stripe_customer_id;
+    if(!customerId){
+        const customer = await stripe.customers.create({ email });
+        await pool.query(
+            'UPDATE user_info SET stripe_customer_id = $1 WHERE email = $2',
+            [customerId, email]
+        );
+        customerId = customer.id;
+    }
+    console.log("customer id: ", customerId);
     const setupIntent = await stripe.setupIntents.create({
-        customer: customer.id,
+        customer: customerId,
         automatic_payment_methods: { enabled: true },
+        usage: 'off_session',
     });
 
-    
-    // await pool.query(
-    //     'UPDATE user_info SET stripe_customer_id = $1 WHERE email = $2',
-    //     [customer.id, email]
-    // );
     return NextResponse.json({ client_secret: setupIntent.client_secret });
 }
 
