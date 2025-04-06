@@ -8,13 +8,18 @@ import Navbar from '@/components/Navbar';
 import { useRouter } from "next/navigation";
 
 const Dashboard = () => {
+  type NavData = {
+    total_value: number;
+    nav: number;
+    total_units: number;
+  };
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-  const [navData, setNavData] = useState(null);
+  const [navData, setNavData] = useState<NavData | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
   // New state for asset allocations from Fireblocks
-  const [assetAllocations, setAssetAllocations] = useState([]);
+  const [assetAllocations, setAssetAllocations] = useState<any>([]);
   const [isAssetLoading, setIsAssetLoading] = useState(true);
 
   useEffect(() => {
@@ -158,23 +163,24 @@ const Dashboard = () => {
           <motion.div variants={itemVariants}>
             <NavValueCard
               title="Total Value"
-              value={isLoading ? 'Loading...' : navData ? `$${navData.total_value.toLocaleString()}` : ''}
-              change={null}
+              value={isLoading ? 'Loading...' : navData ? `$${navData.total_value.toFixed()}` : ''}
+              change={undefined}
             />
           </motion.div>
 
           <motion.div variants={itemVariants}>
             <NavValueCard
               title="NAV per Unit"
-              value={isLoading ? 'Loading...' : navData ? `$${navData.nav ? parseFloat(navData.nav).toFixed(7) : ''}` : ''}
-              change={null}
+              value={isLoading ? 'Loading...' : navData ? `$${navData.nav.toFixed()}` : ''}
+              change={undefined}
             />
           </motion.div>
 
           <motion.div variants={itemVariants}>
             <NavValueCard
               title="Your Units"
-              value={isLoading ? 'Loading...' : navData?.total_units}
+              value={isLoading ? 'Loading...' : navData ? `$${navData.total_units.toFixed()}` : ''}
+              change={undefined}
             />
           </motion.div>
         </motion.div>

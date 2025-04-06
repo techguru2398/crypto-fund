@@ -22,7 +22,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET!, { tolerance: 0,});
+    // event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET!, { tolerance: 0,});
+    event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET!);
   } catch (err: any) {
     console.error('Signature error:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -50,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session;
-      // Optional: You can log session here if needed
+      // Optional: log session here if needed
       console.log(`ℹ️ Checkout session completed for ${session.customer_email}`);
       break;
     }

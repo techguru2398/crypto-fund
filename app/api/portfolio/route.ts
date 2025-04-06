@@ -3,12 +3,11 @@ import { pool } from '@/lib/db';
 import { applyCors } from '@/lib/cors';
 import { withAuth } from '@/lib/authMiddleware';
 
-async function handler(req: NextRequest) {
+async function handler(req: NextRequest, user: any) {
   const corsResponse = applyCors(req);
   if (corsResponse) return corsResponse;
 
-  const { searchParams } = new URL(req.url);
-  const email = searchParams.get('email');
+  const email = user.email;
     console.log("email : ", email);
   if (!email) {
     return NextResponse.json({ error: "Missing 'email' query param" }, { status: 400 });

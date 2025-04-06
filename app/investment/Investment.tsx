@@ -4,28 +4,26 @@ import { motion } from 'framer-motion';
 import { useSearchParams } from 'next/navigation';
 import { PiggyBank, ArrowRight, CreditCard, Landmark, RefreshCw, BadgeDollarSign, SquareActivity } from 'lucide-react';
 import Navbar from '@/components/Navbar';
-import { loadStripeOnramp } from '@stripe/crypto'; // Import loadStripeOnramp from Stripe
 import { useRouter } from "next/navigation";
 import { jwtDecode } from 'jwt-decode';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import { NEXT_BODY_SUFFIX } from 'next/dist/lib/constants';
 import { loadStripe } from '@stripe/stripe-js';
 import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
-type MyJwtPayload = {
-  id: string;
-  email: string;
-  role: string;
-};
+// type MyJwtPayload = {
+//   id: string;
+//   email: string;
+//   role: string;
+// };
 
-type EditSipData = {
-  amount: number;
-  frequency: string;
-  status: string;
-  startDate: Date | undefined;
-};
+// type EditSipData = {
+//   amount: number;
+//   frequency: string;
+//   status: string;
+//   startDate: Date | undefined;
+// };
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -33,8 +31,8 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 const Investment = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialType = searchParams.get('type') === 'withdraw' ? 'withdraw' : 'deposit';
-  const sessionId = searchParams.get('session_id');
+  const initialType = searchParams?.get('type') === 'withdraw' ? 'withdraw' : 'deposit';
+  const sessionId = searchParams?.get('session_id');
   
   const [type, setType] = useState<'deposit' | 'withdraw'>(initialType);
   const [amount, setAmount] = useState('');
@@ -51,14 +49,13 @@ const Investment = () => {
   const [showEditSipModal, setShowEditSipModal] = useState(false);
   const [showStripePaymentModal, setShowStripePaymentModal] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
-  const [email, setEmail] = useState('');
-  const [sipData, setSipData] = useState(null);
+  const [sipData, setSipData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [editSipData, setEditSipData] = useState({
     amount: 0,
     frequency: 'daily',
     status: 'active',
-    startDate: null
+    startDate: undefined as Date | undefined,
   });
   const [showCalendar, setShowCalendar] = useState(false);
   const stripe = useStripe();
@@ -80,10 +77,8 @@ const Investment = () => {
       router.push("/signin");
     } else {
       setAuthChecked(true);
-      const decoded = jwtDecode<MyJwtPayload>(token);
-      setEmail(decoded.email);
     }
-  }, [router]);
+  }, [router, sessionId]);
 
    // Fetch payment method state on component mount
    useEffect(() => {
@@ -124,13 +119,12 @@ const Investment = () => {
   // Fetch portfolio data on component mount (using a hardcoded email for now)
   useEffect(() => {
     const fetchPortfolioData = () => {
-      const email = "jaide@atmax.in"; // adjust as needed
       const token = localStorage.getItem('token');
       if (!token) {
         console.warn('No JWT token found');
         return;
       }
-      fetch(`/api/portfolio?email=${encodeURIComponent(email)}`, {
+      fetch(`/api/portfolio`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -165,7 +159,7 @@ const Investment = () => {
         router.push("/signin");
         return;
       }
-      fetch(`/api/sip/get-info?email=${encodeURIComponent(email)}`, {
+      fetch(`/api/sip/get-info`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -317,7 +311,7 @@ const Investment = () => {
       amount: 0,
       frequency: 'daily',
       status: 'active',
-      startDate: null
+      startDate: undefined
     })
     setShowCreateSipModal(true);
   }
@@ -356,7 +350,7 @@ const Investment = () => {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,
         },
-        body: JSON.stringify({email: email, data: editSipData}),
+        body: JSON.stringify({data: editSipData}),
       });
 
       const result = await res.json();
@@ -403,7 +397,7 @@ const Investment = () => {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,
         },
-        body: JSON.stringify({email: email, data: editSipData}),
+        body: JSON.stringify({ data: editSipData}),
       });
 
       const result = await res.json();
@@ -449,7 +443,6 @@ const Investment = () => {
           card: elements.getElement(CardElement)!,
         },
       });
-      console.log("payment_method_id: ", result.setupIntent.payment_method);
       if (result.setupIntent?.payment_method) {
         await fetch('/api/save-payment-method', {
           method: 'POST',
@@ -991,12 +984,6 @@ const Investment = () => {
                       editSipData.startDate
                         ? format(editSipData.startDate, "yyyy-MM-dd")
                         : ""
-                    }
-                    onChange={(e) =>
-                      setEditSipData({
-                        ...editSipData,
-                        startDate: e.target.value,
-                      })
                     }
                     onClick={() => setShowCalendar(!showCalendar)}
                     placeholder="Select a date"
