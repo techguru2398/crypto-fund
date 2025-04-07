@@ -9,9 +9,9 @@ import { useRouter } from "next/navigation";
 
 const Dashboard = () => {
   type NavData = {
-    total_value: number;
-    nav: number;
-    total_units: number;
+    total_value: string;
+    nav: string;
+    total_units: string;
   };
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
@@ -163,7 +163,7 @@ const Dashboard = () => {
           <motion.div variants={itemVariants}>
             <NavValueCard
               title="Total Value"
-              value={isLoading ? 'Loading...' : navData ? `$${navData.total_value.toFixed()}` : ''}
+              value={isLoading ? 'Loading...' : navData ? `$${parseFloat(navData.total_value).toFixed(7)}` : ''}
               change={undefined}
             />
           </motion.div>
@@ -171,7 +171,7 @@ const Dashboard = () => {
           <motion.div variants={itemVariants}>
             <NavValueCard
               title="NAV per Unit"
-              value={isLoading ? 'Loading...' : navData ? `$${navData.nav.toFixed()}` : ''}
+              value={isLoading ? 'Loading...' : navData ? `$${parseFloat(navData.nav).toFixed(7)}` : ''}
               change={undefined}
             />
           </motion.div>
@@ -179,7 +179,7 @@ const Dashboard = () => {
           <motion.div variants={itemVariants}>
             <NavValueCard
               title="Your Units"
-              value={isLoading ? 'Loading...' : navData ? `$${navData.total_units.toFixed()}` : ''}
+              value={isLoading ? 'Loading...' : navData ? `$${parseFloat(navData.total_units).toFixed(7)}` : ''}
               change={undefined}
             />
           </motion.div>
