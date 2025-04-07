@@ -54,11 +54,7 @@ async function handler(req: NextRequest, user: any) {
 }
 
 function getTimestamp() {
-  const timestamp = Date.now() - 4 * 60 * 60 * 1000;
-  const date = new Date(timestamp);
-  const formatted = date.toISOString();
-
-  console.log(formatted); // e.g., "2025-04-05"
+  const timestamp = Date.now();
   return Math.floor(timestamp / 1000).toString()
 }
 
