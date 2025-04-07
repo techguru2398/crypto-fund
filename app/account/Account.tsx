@@ -1,9 +1,10 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Lock, Bell, ExternalLink, LogOut, ChevronRight } from 'lucide-react';
+import { User, Mail, Lock, Bell, ExternalLink, LogOut, ChevronRight, ShieldCheck, Unlock } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { useRouter } from "next/navigation";
+import KycWidget from '@/components/KycWidget'
 
 const Account = () => {
   const router = useRouter();
@@ -14,6 +15,9 @@ const Account = () => {
     notificationsEnabled: true
   });
   const [authChecked, setAuthChecked] = useState(false);
+  const [kycToken, setKycToken] = useState<string | null>(null)
+  const [showKycModal, setShowKycModal] = useState(false);
+  const [verified, setVerified] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -24,12 +28,89 @@ const Account = () => {
     }
   }, [router]);
 
+  useEffect(() => {
+    const fetchUserInfo = () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn('No JWT token found');
+        router.push("/signin");
+        return;
+      }
+      fetch(`/api/account`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+        .then((res) => {
+          if (res.status === 401) {
+            // Optional: handle expired token
+            localStorage.removeItem('token');
+            router.push('/signin');
+            throw new Error('Unauthorized');
+          }
+          return res.json();
+        })
+        .then((data) => {
+          setVerified(data.verified);
+        })
+        .catch((err) => {
+          console.error("Error fetching user data:", err);
+        });
+    }
+    if (authChecked) fetchUserInfo();
+  }, [authChecked, router]);
+
   if (!authChecked) return null;
+
+  const startKyc = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.warn('No JWT token found');
+      router.push("/signin");
+      return;
+    }
+    const res = await fetch('/api/kyc/token', {
+      method: 'POST',
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+    })
+    const data = await res.json()
+    setKycToken(data.token)
+    setShowKycModal(true);
+  }
   
   const handleLogout = () => {
     console.log('Logout clicked');
     localStorage.removeItem("token"); // clear expired token
     router.push("/signin");
+  };
+
+  const onVerified = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.warn('No JWT token found');
+      router.push("/signin");
+      return;
+    }
+    try {
+      const res = await fetch("/api/kyc/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+      const result = await res.json();
+
+      if(result.success){
+        setVerified(true);
+      }
+    } catch (err: any) {
+    } 
   };
 
   // Animation variants
@@ -55,7 +136,7 @@ const Account = () => {
   return (
     <div className="min-h-screen pb-20 sm:pb-0 sm:pt-20">
       <Navbar />
-      
+
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         <motion.header
           initial={{ opacity: 0, y: -20 }}
@@ -77,6 +158,23 @@ const Account = () => {
             <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center text-primary">
               <User size={36} />
             </div>
+
+            {/* <div className="flex flex-col items-start">
+              <div className="flex gap-1 mb-2">
+                <h3 className="font-medium">KYC Status: {verified ? "verified" : "unverified"}</h3>
+                {verified && <ShieldCheck size={24} />}
+              </div>
+
+              {!verified && (
+                <button
+                  onClick={startKyc}
+                  className="bg-primary text-white px-4 py-2 rounded"
+                >
+                  Start KYC
+                </button>
+              )}
+            </div> */}
+
             
             <div className="flex-1 text-center md:text-left">
               <h2 className="text-2xl font-semibold">{user.name}</h2>
@@ -91,6 +189,8 @@ const Account = () => {
             </div>
           </div>
         </motion.div>
+
+        
         
         <motion.div
           variants={containerVariants}
@@ -160,10 +260,17 @@ const Account = () => {
                 action: <ChevronRight size={18} className="text-muted-foreground" /> 
               },
               { 
-                icon: <Lock size={20} />, 
-                title: 'Two-Factor Authentication', 
-                subtitle: 'Not enabled',
-                action: <ChevronRight size={18} className="text-muted-foreground" /> 
+                icon: verified ? <Unlock size={20} /> : <Lock size={20} />, 
+                title: 'KYC status', 
+                subtitle: verified ? 'Verified' : 'Not verified',
+                action: !verified && (
+                  <div className="group cursor-pointer" onClick={startKyc}>
+                    <ChevronRight
+                      size={18}
+                      className="text-muted-foreground group-hover:text-white transition-colors"
+                    />
+                  </div>
+                )
               },
             ].map((item, index) => (
               <div 
@@ -195,6 +302,26 @@ const Account = () => {
           </motion.div>
         </motion.div>
       </div>
+
+      {showKycModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="rounded-xl shadow-xl max-w-4xl w-full relative overflow-hidden">
+            <button
+              onClick={() => setShowKycModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white text-xl"
+            >
+              ✕
+            </button>
+            <KycWidget 
+              accessToken={kycToken!} 
+              applicantEmail={user.email} 
+              applicantPhone="" 
+              onVerified={onVerified}
+            />
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

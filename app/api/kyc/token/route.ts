@@ -1,54 +1,79 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
-import axios from 'axios';
+import crypto from 'crypto'
+import axios from 'axios'
 import { applyCors } from '@/lib/cors';
+import { withAuth } from '@/lib/authMiddleware';
 
-export async function POST(req: NextRequest) {
+const SUMSUB_APP_TOKEN = process.env.SUMSUB_APP_TOKEN!
+const SUMSUB_SECRET_KEY = process.env.SUMSUB_SECRET_KEY!
+const SUMSUB_BASE_URL = process.env.SUMSUB_BASE_URL!
+
+async function handler(req: NextRequest, user: any) {
   const corsResponse = applyCors(req);
   if (corsResponse) return corsResponse;
 
+  console.log("email:", user.email);
+  const externalUserId = user.email;
   try {
-    const body = await req.json();
-    const email = body.email;
+    // 1. Create applicant (idempotent)
+    // const ts = getTimestamp();
+    // const applicantRes = await axios.post(
+    //   `${SUMSUB_BASE_URL}/resources/applicants?levelName=idv-and-phone-verification`,
+    //   { externalUserId },
+    //   {
+    //     headers: {
+    //       'X-App-Token': SUMSUB_APP_TOKEN,
+    //       'X-App-Access-Sig': generateSignature(ts, 'POST', `/resources/applicants?levelName=idv-and-phone-verification`, { externalUserId }),
+    //       'X-App-Access-Ts': ts,
+    //       'Content-Type': 'application/json',
+    //     },
+    //   }
+    // )
+    // const applicantId = applicantRes.data.id;
 
-    if (!email) {
-      return NextResponse.json({ error: 'Missing email' }, { status: 400 });
-    }
-
-    const baseUrl = process.env.SUMSUB_BASE_URL;
-    const appToken = process.env.SUMSUB_APP_TOKEN;
-    const secretKey = process.env.SUMSUB_SECRET_KEY;
-
-    const externalUserId = email;
-    const timestamp = Math.floor(Date.now() / 1000);
-    const method = 'POST';
-    const path = `/resources/accessTokens?userId=${externalUserId}`;
-
-    const signature = crypto
-      .createHmac('sha256', secretKey!)
-      .update(`${timestamp}${method}${path}`)
-      .digest('hex');
-
+    const ts2 = getTimestamp();
+    // 2. Generate access token
     const { data } = await axios.post(
-      `${baseUrl}${path}`,
-      {},
+      `${SUMSUB_BASE_URL}/resources/accessTokens/sdk`,
+      { userId: externalUserId, levelName: "idv-and-phone-verification" },
       {
         headers: {
+          'X-App-Token': SUMSUB_APP_TOKEN,
+          'X-App-Access-Sig': generateSignature(ts2, 'POST', `/resources/accessTokens/sdk`, { userId: externalUserId, levelName: "idv-and-phone-verification" }),
+          'X-App-Access-Ts': ts2,
           'Content-Type': 'application/json',
-          'X-App-Token': appToken!,
-          'X-App-Access-Sig': signature,
-          'X-App-Access-Ts': timestamp.toString(),
         },
       }
-    );
-
-    return NextResponse.json({ token: data.token });
+    )
+    console.log("access token: ", data);
+    return NextResponse.json(data)
   } catch (err: any) {
-    console.error('❌ Sumsub token error:', err.message);
-    return NextResponse.json({ error: 'Failed to get Sumsub token' }, { status: 500 });
+    console.error(err.response?.data || err.message)
+    return NextResponse.json({ error: 'Failed to get access token' }, { status: 500 })
   }
 }
 
+function getTimestamp() {
+  const timestamp = Date.now() - 4 * 60 * 60 * 1000;
+  const date = new Date(timestamp);
+  const formatted = date.toISOString();
+
+  console.log(formatted); // e.g., "2025-04-05"
+  return Math.floor(timestamp / 1000).toString()
+}
+
+function generateSignature(ts: string, method: string, url: string, body: any) {
+  const bodyString = JSON.stringify(body)
+  const signature = crypto
+    .createHmac('sha256', SUMSUB_SECRET_KEY)
+    .update(ts + method + url + bodyString)
+    .digest('hex')
+
+  return signature
+}
+
+export const POST = withAuth(handler);
+
 export function OPTIONS(req: NextRequest) {
-    return applyCors(req) ?? NextResponse.json({});
+  return applyCors(req) ?? NextResponse.json({});
 }
