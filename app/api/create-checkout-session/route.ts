@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { applyCors } from '@/lib/cors';
-import { withAuth } from '@/lib/authMiddleware';
+import { getServerSession } from "next-auth";
+import { authOptions } from '@/lib/auth';
 import { getLatestNAV } from '@/lib/nav';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2022-11-15',
 });
 
-async function handler(req: NextRequest, user: any) {
+async function handler(req: NextRequest ) {
     const corsResponse = applyCors(req);
     if (corsResponse) return corsResponse;
+
+    const session = await getServerSession(authOptions);
+    if (!session) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     
     const { destination_amount, input_method } = await req.json();
     
@@ -18,7 +24,7 @@ async function handler(req: NextRequest, user: any) {
     const amount_usd = input_method == 'fiat' ? destination_amount : destination_amount * nav;
     const units = input_method == 'fiat' ? destination_amount / nav : destination_amount;
 
-    const session = await stripe.checkout.sessions.create({
+    const checkoutSession = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         mode: 'payment',
         line_items: [
@@ -33,29 +39,29 @@ async function handler(req: NextRequest, user: any) {
             quantity: 1,
         },
         ],
-        customer_email: user.email,
+        customer_email: session.user.email as string,
         success_url: `${process.env.APP_URL}/investment?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${process.env.APP_URL}/investment`,
         metadata: {
             type: 'checkout',
-            user_email: user.email,
+            user_email: session.user.email as string,
             nav: nav,
             units: units,
         },
         payment_intent_data: {
           metadata: {
             type: 'checkout',
-            user_email: user.email,
+            user_email: session.user.email as string,
             nav: nav,
             units: units,
           }
         }
     });
-    console.log("checkout session: ", session);
-    return NextResponse.json({ id: session.id });
+    console.log("checkout session: ", checkoutSession);
+    return NextResponse.json({ id: checkoutSession.id });
 }
 
-export const POST = withAuth(handler);
+export const POST = handler;
 
 export function OPTIONS(req: NextRequest) {
     return applyCors(req) ?? NextResponse.json({});

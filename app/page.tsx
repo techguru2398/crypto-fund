@@ -3,11 +3,14 @@ import React, { useState, useEffect } from 'react';
 import Link from "next/link";
 import { motion } from 'framer-motion';
 import { TrendingUp, PieChart, ShieldCheck } from 'lucide-react';
+import { signIn, signOut, useSession } from "next-auth/react";
 
 
 export default function Home() {
   const [scrollPosition, setScrollPosition] = useState(0);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { data: session, status } = useSession();
+
+  const isAuthenticated = status === 'authenticated';
   
   useEffect(() => {
     const handleScroll = () => {
@@ -18,17 +21,8 @@ export default function Home() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      setIsAuthenticated(true);
-    }
-  }, []);
-
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    setIsAuthenticated(false);
-    window.location.href = "/";
+    signOut({ callbackUrl: '/' });
   };
 
   const parallaxValue = scrollPosition * 0.3;

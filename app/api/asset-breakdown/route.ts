@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { applyCors } from '@/lib/cors';
-import { withAuth } from '@/lib/authMiddleware';
+import { getServerSession } from "next-auth";
+import { authOptions } from '@/lib/auth';
 
 const COINGECKO_MAP: Record<string, string> = {
   BTC_TEST: 'bitcoin',
@@ -10,9 +11,14 @@ const COINGECKO_MAP: Record<string, string> = {
 
 const ASSET_IDS = ['BTC_TEST', 'LTC_TEST'];
 
-async function handler(req: NextRequest, user: any) {
+async function handler(req: NextRequest) {
   const corsResponse = applyCors(req);
   if (corsResponse) return corsResponse;
+
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   try {
     const holdings: Record<string, any> = {};
@@ -41,7 +47,7 @@ async function handler(req: NextRequest, user: any) {
   }
 }
 
-export const GET = withAuth(handler);
+export const GET = handler;
 
 export function OPTIONS(req: NextRequest) {
   return applyCors(req) ?? NextResponse.json({});

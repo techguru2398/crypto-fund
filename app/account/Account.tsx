@@ -5,82 +5,60 @@ import { User, Mail, Lock, Bell, ExternalLink, LogOut, ChevronRight, ShieldCheck
 import Navbar from '@/components/Navbar';
 import { useRouter } from "next/navigation";
 import KycWidget from '@/components/KycWidget'
+import { useSession, signOut } from 'next-auth/react';
+
+type Account = {
+  name: string;
+  email: string;
+  verified: boolean;
+  createdAt: string;
+};
 
 const Account = () => {
   const router = useRouter();
-  const [user] = useState({
-    name: 'Alex Johnson',
-    email: 'alex@example.com',
-    createdAt: 'January 2023',
-    notificationsEnabled: true
-  });
-  const [authChecked, setAuthChecked] = useState(false);
-  const [kycToken, setKycToken] = useState<string | null>(null)
+  const { data: session, status } = useSession();
+  const [kycToken, setKycToken] = useState<string | null>(null);
   const [showKycModal, setShowKycModal] = useState(false);
   const [verified, setVerified] = useState(false);
+  const [account, setAccount] = useState<Account | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
+    if (status === "unauthenticated") {
       router.push("/signin");
-    } else {
-      setAuthChecked(true);
     }
-  }, [router]);
+  }, [status, router]);
 
   useEffect(() => {
-    const fetchUserInfo = () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.warn('No JWT token found');
-        router.push("/signin");
-        return;
-      }
-      fetch(`/api/account`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      })
-        .then((res) => {
-          if (res.status === 401) {
-            // Optional: handle expired token
-            localStorage.removeItem('token');
-            router.push('/signin');
-            throw new Error('Unauthorized');
-          }
-          return res.json();
-        })
-        .then((data) => {
-          setVerified(data.verified);
-        })
-        .catch((err) => {
-          console.error("Error fetching user data:", err);
-        });
+    const fetchUserInfo = async () => {
+      try{
+        const res = await fetch(`/api/account`);
+        if (res.status === 401) {
+          router.push('/signin');
+          return;
+        }
+        const data = await res.json();
+        console.log("account :", data);
+        setAccount(data);
+        setVerified(data.verified);
+      } catch (err) {
+        console.error('Error fetching user data:', err);
+      } 
     }
-    if (authChecked) fetchUserInfo();
-  }, [authChecked, router]);
-
-  if (!authChecked) return null;
+    if (status === "authenticated") {
+      fetchUserInfo();
+    }
+  }, [status, router]);
 
   const startKyc = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.warn('No JWT token found');
-      router.push("/signin");
-      return;
-    }
+
     const res = await fetch('/api/kyc/token', {
       method: 'POST',
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
       },
     })
     if (res.status === 401) {
-      localStorage.removeItem("token"); // clear expired token
-      router.push("/signin");           // redirect
+      router.push("/signin");
       return;
     }
     const data = await res.json();
@@ -95,23 +73,16 @@ const Account = () => {
   
   const handleLogout = () => {
     console.log('Logout clicked');
-    localStorage.removeItem("token"); // clear expired token
-    router.push("/signin");
+    signOut(); 
+    // router.push("/signin");
   };
 
   const onVerified = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.warn('No JWT token found');
-      router.push("/signin");
-      return;
-    }
     try {
       const res = await fetch("/api/kyc/verify", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
         },
       });
       const result = await res.json();
@@ -143,6 +114,8 @@ const Account = () => {
     }
   };
 
+  if (status === 'unauthenticated') return null;
+
   return (
     <div className="min-h-screen pb-20 sm:pb-0 sm:pt-20">
       <Navbar />
@@ -168,28 +141,11 @@ const Account = () => {
             <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center text-primary">
               <User size={36} />
             </div>
-
-            {/* <div className="flex flex-col items-start">
-              <div className="flex gap-1 mb-2">
-                <h3 className="font-medium">KYC Status: {verified ? "verified" : "unverified"}</h3>
-                {verified && <ShieldCheck size={24} />}
-              </div>
-
-              {!verified && (
-                <button
-                  onClick={startKyc}
-                  className="bg-primary text-white px-4 py-2 rounded"
-                >
-                  Start KYC
-                </button>
-              )}
-            </div> */}
-
             
             <div className="flex-1 text-center md:text-left">
-              <h2 className="text-2xl font-semibold">{user.name}</h2>
-              <p className="text-muted-foreground">{user.email}</p>
-              <p className="text-sm text-muted-foreground mt-1">Member since {user.createdAt}</p>
+              <h2 className="text-2xl font-semibold">{account?.name}</h2>
+              <p className="text-muted-foreground">{account?.email}</p>
+              <p className="text-sm text-muted-foreground mt-1">Member since {account?.createdAt}</p>
             </div>
             
             <div>
@@ -215,7 +171,7 @@ const Account = () => {
               { 
                 icon: <Mail size={20} />, 
                 title: 'Email Address', 
-                subtitle: user.email,
+                subtitle: account?.email,
                 action: <ChevronRight size={18} className="text-muted-foreground" /> 
               },
               { 
@@ -227,13 +183,13 @@ const Account = () => {
               { 
                 icon: <Bell size={20} />, 
                 title: 'Notifications', 
-                subtitle: user.notificationsEnabled ? 'Enabled' : 'Disabled',
+                subtitle: 'Enabled',
                 action: (
                   <div className="relative inline-flex items-center cursor-pointer">
                     <input 
                       type="checkbox" 
                       className="sr-only peer" 
-                      checked={user.notificationsEnabled}
+                      checked={true}
                       onChange={() => {}}
                     />
                     <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
@@ -324,7 +280,7 @@ const Account = () => {
             </button>
             <KycWidget 
               accessToken={kycToken!} 
-              applicantEmail={user.email} 
+              applicantEmail={account?.email as string} 
               applicantPhone="" 
               onVerified={onVerified}
             />

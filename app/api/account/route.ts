@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { applyCors } from '@/lib/cors';
-import { withAuth } from '@/lib/authMiddleware';
+import { getServerSession } from "next-auth";
+import { authOptions } from '@/lib/auth';
 
-async function handler(req: NextRequest, user: any) {
+async function handler(req: NextRequest) {
   const corsResponse = applyCors(req);
   if (corsResponse) return corsResponse;
 
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
-    const email = user.email;
+    console.log("session: ", session);
+    const email = session.user.email;
     const result = await pool.query(
         `SELECT * FROM user_info WHERE email = $1`,
         [email]
@@ -20,7 +26,7 @@ async function handler(req: NextRequest, user: any) {
   }
 }
 
-export const GET = withAuth(handler);
+export const GET = handler;
 
 export function OPTIONS(req: NextRequest) {
   return applyCors(req) ?? NextResponse.json({});

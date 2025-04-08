@@ -1,19 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { applyCors } from '@/lib/cors';
-import { withAuth } from '@/lib/authMiddleware';
+import { getServerSession } from "next-auth";
+import { authOptions } from '@/lib/auth';
 import { pool } from '@/lib/db';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2022-11-15',
 });
 
-async function handler(req: NextRequest, user: any) {
-    console.log("aaaaaaa:", user.email);
+async function handler(req: NextRequest) {
     const corsResponse = applyCors(req);
     if (corsResponse) return corsResponse;
-    
-    const email = user.email;
+
+    const session = await getServerSession(authOptions);
+    if (!session) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const email = session.user.email;
     try {
         const { payment_method_id } = await req.json();
         console.log("payment: ", payment_method_id);
@@ -28,7 +33,7 @@ async function handler(req: NextRequest, user: any) {
       }
 }
 
-export const POST = withAuth(handler);
+export const POST = handler;
 
 export function OPTIONS(req: NextRequest) {
     return applyCors(req) ?? NextResponse.json({});

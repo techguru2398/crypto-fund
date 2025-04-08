@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { applyCors } from '@/lib/cors';
-import { withAuth } from '@/lib/authMiddleware';
+import { getServerSession } from "next-auth";
+import { authOptions } from '@/lib/auth';
 
-async function handler(req: NextRequest, user: any) {
+async function handler(req: NextRequest) {
     const corsResponse = applyCors(req);
     if (corsResponse) return corsResponse;
+
+    const session = await getServerSession(authOptions);
+    if (!session) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await req.json();
     const { data } = body;
     const { amount, frequency, status, startDate} = data;
-    const email = user.email;
+    const email = session.user.email;
     if (!email) {
         return NextResponse.json({ error: "Missing 'email' query param" }, { status: 400 });
     }
@@ -33,7 +40,7 @@ async function handler(req: NextRequest, user: any) {
     }
 }
 
-export const POST = withAuth(handler);
+export const POST = handler;
 
 export function OPTIONS(req: NextRequest) {
   return applyCors(req) ?? NextResponse.json({});

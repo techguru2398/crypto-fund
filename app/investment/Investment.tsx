@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { loadStripe } from '@stripe/stripe-js';
 import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { useSession, signOut } from 'next-auth/react';
 
 // type MyJwtPayload = {
 //   id: string;
@@ -30,6 +31,7 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 
 const Investment = () => {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const initialType = searchParams?.get('type') === 'withdraw' ? 'withdraw' : 'deposit';
   const sessionId = searchParams?.get('session_id');
@@ -48,7 +50,6 @@ const Investment = () => {
   const [showCreateSipModal, setShowCreateSipModal] = useState(false);
   const [showEditSipModal, setShowEditSipModal] = useState(false);
   const [showStripePaymentModal, setShowStripePaymentModal] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
   const [sipData, setSipData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [editSipData, setEditSipData] = useState({
@@ -64,6 +65,11 @@ const Investment = () => {
   const [paymentMethodExist, setPaymentMethodExist] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/signin");
+    }
+  }, [status, router]);
   
   useEffect(() => {
     if(sessionId) {
@@ -72,36 +78,21 @@ const Investment = () => {
         description: "Session ID: " + sessionId,
       });
     }
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/signin");
-    } else {
-      setAuthChecked(true);
-    }
   }, [router, sessionId]);
 
    // Fetch payment method state on component mount
    useEffect(() => {
     const fetchPaymentMethodState = () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.warn('No JWT token found');
-        router.push("/signin");
-        return;
-      }
       fetch(`/api/sip/get-payment-method-state`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       })
         .then((res) => {
           if (res.status === 401) {
-            // Optional: handle expired token
-            localStorage.removeItem('token');
             router.push('/signin');
-            throw new Error('Unauthorized');
+            return;
           }
           return res.json();
         })
@@ -113,30 +104,23 @@ const Investment = () => {
           console.error("Error fetching sip data:", err);
         });
     }
-    if (authChecked) fetchPaymentMethodState();
-  }, [authChecked, router]); 
+    if (status === "authenticated") 
+      fetchPaymentMethodState();
+  }, [status, router]); 
 
   // Fetch portfolio data on component mount (using a hardcoded email for now)
   useEffect(() => {
     const fetchPortfolioData = () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.warn('No JWT token found');
-        return;
-      }
       fetch(`/api/portfolio`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       })
         .then((res) => {
           if (res.status === 401) {
-            // Optional: handle expired token
-            localStorage.removeItem('token');
             router.push('/signin');
-            throw new Error('Unauthorized');
+            return;
           }
           return res.json();
         })
@@ -147,48 +131,40 @@ const Investment = () => {
           console.error("Error fetching portfolio data:", err);
         });
     }
-    if (authChecked) fetchPortfolioData();
-  }, [authChecked, router]);
+    if (status === "authenticated") 
+      fetchPortfolioData();
+  }, [status, router]);
 
   // Fetch Sip data on component mount
   useEffect(() => {
     const fetchSipData = () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.warn('No JWT token found');
-        router.push("/signin");
-        return;
-      }
       fetch(`/api/sip/get-info`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       })
         .then((res) => {
           if (res.status === 401) {
-            // Optional: handle expired token
-            localStorage.removeItem('token');
             router.push('/signin');
-            throw new Error('Unauthorized');
+            return;
           }
           return res.json();
         })
         .then((data) => {
           console.log("length: ", data.length);
           console.log("data: ", data);
-          // setSipData([{aa:"aa"}]);
           setSipData(data);
         })
         .catch((err) => {
           console.error("Error fetching sip data:", err);
         });
     }
-    if (authChecked) fetchSipData();
-  }, [authChecked, router]);
+    if (status === "authenticated") 
+      fetchSipData();
+  }, [status, router]);
 
-  if (!authChecked) return null;
+  if (status === 'unauthenticated') return null;
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/[^0-9.]/g, '');
@@ -204,84 +180,12 @@ const Investment = () => {
     }
   };
 
-  // const startOnrampFlow = async () => {
-  //   try {
-  //     // 1. Fetch the client secret from your backend
-  //     const token = localStorage.getItem("token");
-  //     if (!token) {
-  //       console.warn('No JWT token found');
-  //       router.push("/signin");
-  //       return;
-  //     }
-  //     const res = await fetch("/api/create-onramp-session", {
-  //       method: "POST",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //         "Authorization": `Bearer ${token}`,
-  //       },
-  //       body: JSON.stringify({
-  //         destination_amount: parseFloat(amount),
-  //       }),
-  //     });
-  //     if (res.status === 401) {
-  //       localStorage.removeItem("token"); // clear expired token
-  //       router.push("/signin");           // redirect
-  //       return;
-  //     }
-  //     const data = await res.json();
-  //     const clientSecret = data.client_secret;
-  
-  //     if (!clientSecret) {
-  //       throw new Error("Client secret not returned from server.");
-  //     }
-  
-  //     // 2. Load Stripe Onramp
-  //     const onramp = await loadStripeOnramp("pk_test_51OlfUEH2M8Zi7WwPb0afyP5uLG49OCDUOgeEzJLi0iDovjh4a4aW3neAtqlGwacDCqlwIV2IwlVE4rgvHR4cqnyV00ihUStLBF");
-  
-  //     // 3. Get container
-  //     setShowOnrampModal(true); // <-- Trigger modal open before mount
-      
-  //     // 4. Create and mount session
-  //     setTimeout(async () => {
-  //       const container = document.getElementById("onramp-container");
-  //       if (!container) throw new Error("Onramp container not found");
-  //       container.innerHTML = "";
-  
-  //       const session = await onramp.createSession({
-  //         clientSecret,
-  //         appearance: {
-  //           theme: "dark",
-  //         },
-  //       });
-
-        
-  
-  //     session.mount(container); // Attach to DOM
-  //     }
-  //     , 1000);
-  
-  //     setTransactionComplete(true);
-  //   } catch (error) {
-  //     console.error("❌ Onramp Error:", error);
-  //   } finally {
-  //     setIsSubmitting(false);
-  //   }
-  // };
-
   const startCheckoutFlow = async () => {
     try {
-      // 1. Fetch the client secret from your backend
-      const token = localStorage.getItem("token");
-      if (!token) {
-        console.warn('No JWT token found');
-        router.push("/signin");
-        return;
-      }
       const res = await fetch("/api/create-checkout-session", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
           destination_amount: parseFloat(amount),
@@ -289,8 +193,7 @@ const Investment = () => {
         }),
       });
       if (res.status === 401) {
-        localStorage.removeItem("token"); // clear expired token
-        router.push("/signin");           // redirect
+        router.push("/signin");   
         return;
       }
 
@@ -337,18 +240,11 @@ const Investment = () => {
   const createSip = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.warn('No JWT token found');
-      router.push("/signin");
-      return;
-    }
     try {
       const res = await fetch("/api/sip/create-sip", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({data: editSipData}),
       });
@@ -384,18 +280,11 @@ const Investment = () => {
   const editSip = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.warn('No JWT token found');
-      router.push("/signin");
-      return;
-    }
     try {
       const res = await fetch("/api/sip/edit-sip", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({ data: editSipData}),
       });
@@ -427,16 +316,49 @@ const Investment = () => {
     }
   };
 
+  const cancelSip = async () => {
+    setLoading(true);
+    editSipData.status = 'cancelled';
+    try {
+      const res = await fetch("/api/sip/edit-sip", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ data: editSipData}),
+      });
+
+      const result = await res.json();
+      if (!res.ok){
+        console.log("res:", result.error);
+        toast({
+          title: "Cancel Sip failed",
+          description: result.error,
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title: "SIP Cancelled",
+        description: "Your SIP has been successfully cancelled.",
+      });
+      setShowEditSipModal(false);
+      setSipData(result.data);
+    } catch (err: any) {
+      toast({
+        title: "Cancel Sip failed",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const savePaymentMethod = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements || !stripeCustomerClientSecret) return;
     setLoading(true);
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.warn('No JWT token found');
-      router.push("/signin");
-      return;
-    }
     try {
       const result = await stripe.confirmCardSetup(stripeCustomerClientSecret, {
         payment_method: {
@@ -448,7 +370,6 @@ const Investment = () => {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({ payment_method_id: result.setupIntent.payment_method }),
         });
@@ -477,17 +398,10 @@ const Investment = () => {
   };
 
   const getClientSecret = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.warn('No JWT token found');
-      router.push("/signin");
-      return;
-    }
     const res = await fetch('/api/get-client-secret', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
       },
     })
     const data = await res.json();
@@ -766,13 +680,11 @@ const Investment = () => {
                   <div className="flex justify-between">
                     <span className="font-medium">There is no plan</span>
                   </div>
+                  <div className="border-t border-border my-2 pt-2 flex justify-between">
+                    <span className="text-muted-foreground">{paymentMethodExist ? "Card connected" : "Card not connected"}</span>
+                    <span className="font-medium cursor-pointer hover:text-blue-800 transition-colors" onClick={getClientSecret}>{!paymentMethodExist ? 'Connect card' : 'Change card' } </span>
+                  </div>
                   <div className="border-t border-border my-2 pt-2 flex justify-end gap-2">
-                    <button
-                      className="bg-primary text-primary-foreground px-5 py-1 rounded-lg font-medium shadow-lg"
-                      onClick={getClientSecret}
-                    >
-                      {!paymentMethodExist ? 'Save card' : 'Edit card' } 
-                    </button>
                     <button
                       className="bg-primary text-primary-foreground px-5 py-1 rounded-lg font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                       disabled={!paymentMethodExist}
@@ -807,19 +719,24 @@ const Investment = () => {
                     <span className="text-muted-foreground">Update Date</span>
                     <span className="font-medium">{format(sipData[0].updated_at, "yyyy-MM-dd")}</span>
                   </div>
+                  <div className="border-t border-border my-2 pt-2 flex justify-between">
+                    <span className="text-muted-foreground">{paymentMethodExist ? "Card connected" : "Card not connected"}</span>
+                    <span className="font-medium cursor-pointer hover:text-blue-800 transition-colors" onClick={getClientSecret}>{!paymentMethodExist ? 'Connect card' : 'Change card' } </span>
+                  </div>
                   <div className="border-t border-border my-2 pt-2 flex justify-end gap-2">
-                    <button
-                      className="bg-primary text-primary-foreground px-5 py-1 rounded-lg font-medium shadow-lg"
-                      onClick={getClientSecret}
-                    >
-                      {!paymentMethodExist ? 'Save card' : 'Edit card' } 
-                    </button>
                     <button
                       className="bg-primary text-primary-foreground px-5 py-1 rounded-lg font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                       disabled={!paymentMethodExist}
                       onClick={onShowEditSipModal}
                     >
                       Edit plan
+                    </button>
+                    <button
+                      className="bg-red-600 text-primary-foreground px-5 py-1 rounded-lg font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={!paymentMethodExist}
+                      onClick={cancelSip}
+                    >
+                      Cancel plan
                     </button>
                   </div>
                 </div>
@@ -985,6 +902,12 @@ const Investment = () => {
                         ? format(editSipData.startDate, "yyyy-MM-dd")
                         : ""
                     }
+                    onChange={(e) =>
+                      setEditSipData({
+                        ...editSipData,
+                        startDate: new Date(e.target.value),
+                      })
+                    }
                     onClick={() => setShowCalendar(!showCalendar)}
                     placeholder="Select a date"
                     required
@@ -1113,7 +1036,6 @@ const Investment = () => {
                     </option>
                     <option value="active">Active</option>
                     <option value="paused">Paused</option>
-                    <option value="cancelled">Cancelled</option>
                   </select>
                 </div>
 
@@ -1128,6 +1050,12 @@ const Investment = () => {
                       editSipData.startDate
                         ? format(editSipData.startDate, "yyyy-MM-dd")
                         : ""
+                    }
+                    onChange={(e) =>
+                      setEditSipData({
+                        ...editSipData,
+                        startDate: new Date(e.target.value),
+                      })
                     }
                     onClick={() => setShowCalendar(!showCalendar)}
                     placeholder="Select a date"

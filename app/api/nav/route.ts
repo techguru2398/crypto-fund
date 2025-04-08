@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 import { applyCors } from '@/lib/cors'; 
-import { withAuth } from '@/lib/authMiddleware';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
-async function getNavHandler(req: NextRequest, user: any) {
+async function getNavHandler(req: NextRequest) {
   const corsResponse = applyCors(req);
   if (corsResponse) return corsResponse;
 
-  console.log("✅ Authenticated user:", user.email);
-  console.log("database", process.env.DATABASE_URL);
+  const session = await getServerSession(authOptions);
+
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  console.log("✅ Authenticated user:", session.user.email);
 
   try {
     const result = await pool.query(`
@@ -29,7 +34,7 @@ async function getNavHandler(req: NextRequest, user: any) {
   }
 }
 
-export const GET = withAuth(getNavHandler);
+export const GET = getNavHandler;
 
 // Allow preflight CORS
 export function OPTIONS(req: NextRequest) {

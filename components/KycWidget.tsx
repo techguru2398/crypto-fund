@@ -73,7 +73,7 @@ export default function KycWidget({ accessToken, applicantEmail, applicantPhone,
     };
 
     loadSdk();
-  }, [accessToken, applicantEmail, applicantPhone]);
+  }, [accessToken, applicantEmail, applicantPhone, onVerified]);
 
   return <div id="sumsub-websdk-container"/>;
 }

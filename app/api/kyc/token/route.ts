@@ -2,18 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto'
 import axios from 'axios'
 import { applyCors } from '@/lib/cors';
-import { withAuth } from '@/lib/authMiddleware';
+import { getServerSession } from "next-auth";
+import { authOptions } from '@/lib/auth';
 
 const SUMSUB_APP_TOKEN = process.env.SUMSUB_APP_TOKEN!
 const SUMSUB_SECRET_KEY = process.env.SUMSUB_SECRET_KEY!
 const SUMSUB_BASE_URL = process.env.SUMSUB_BASE_URL!
 
-async function handler(req: NextRequest, user: any) {
+async function handler(req: NextRequest) {
   const corsResponse = applyCors(req);
   if (corsResponse) return corsResponse;
 
-  console.log("email:", user.email);
-  const externalUserId = user.email;
+  const session = await getServerSession(authOptions);
+  if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  console.log("email:", session.user.email);
+  const externalUserId = session.user.email;
   try {
     // 1. Create applicant (idempotent)
     // const ts = getTimestamp();
@@ -68,7 +74,7 @@ function generateSignature(ts: string, method: string, url: string, body: any) {
   return signature
 }
 
-export const POST = withAuth(handler);
+export const POST = handler;
 
 export function OPTIONS(req: NextRequest) {
   return applyCors(req) ?? NextResponse.json({});

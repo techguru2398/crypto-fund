@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
 
 const SigninPage = () => {
   const [email, setEmail] = useState("");
@@ -16,19 +17,16 @@ const SigninPage = () => {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/signin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+      const res = await signIn("credentials", {
+        redirect: false,
+        email: email,
+        password: password,
+        // callbackUrl: "/dashboard",
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error);
-      } else {
-        localStorage.setItem("token", data.token);
-        router.push("/dashboard");
+      if (res?.ok) {
+        window.location.href = "/dashboard";
+      } else if (res?.error) {
+        setError(res.error);
       }
     } catch (err: any) {
       setError(err.message);
@@ -47,7 +45,7 @@ const SigninPage = () => {
                   Sign in to your account
                 </h3>
                 {error && <p className="text-red-500">{error}</p>}
-                <button className="border-stroke shadow-two mb-6 flex w-full items-center justify-center rounded-sm border px-6 py-3 text-base text-gray-400 outline-none transition-all duration-300 hover:border-primary hover:bg-primary/5 hover:text-primary border-transparent bg-[#2C303B] hover:shadow-none">
+                <button onClick={()=>signIn('google', { callbackUrl: '/dashboard' })} className="border-stroke shadow-two mb-6 flex w-full items-center justify-center rounded-sm border px-6 py-3 text-base text-gray-400 outline-none transition-all duration-300 hover:border-primary hover:bg-primary/5 hover:text-primary border-transparent bg-[#2C303B] hover:shadow-none">
                   <span className="mr-3">
                     <svg
                       width="20"
@@ -109,7 +107,7 @@ const SigninPage = () => {
                       className="border-stroke shadow-two w-full rounded-sm border px-6 py-3 text-base text-gray-400 outline-none transition-all duration-300 focus:border-primary border-transparent bg-[#2C303B] focus:shadow-none"
                     />
                   </div>
-                  <div className="mb-8">
+                  <div className="mb-16">
                     <label
                       htmlFor="password"
                       className="mb-3 block text-sm text-white"
@@ -126,7 +124,7 @@ const SigninPage = () => {
                       className="border-stroke shadow-two w-full rounded-sm border px-6 py-3 text-base text-gray-400 outline-none transition-all duration-300 focus:border-primary border-transparent bg-[#2C303B] focus:shadow-none"
                     />
                   </div>
-                  <div className="mb-8 flex flex-col justify-between sm:flex-row sm:items-center">
+                  {/* <div className="mb-8 flex flex-col justify-between sm:flex-row sm:items-center">
                     <div className="mb-4 sm:mb-0">
                       <label
                         htmlFor="checkboxLabel"
@@ -168,7 +166,7 @@ const SigninPage = () => {
                         Forgot Password?
                       </a>
                     </div>
-                  </div>
+                  </div> */}
                   <div className="mb-6">
                     <button 
                       type="submit"

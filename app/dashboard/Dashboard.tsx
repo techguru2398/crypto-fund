@@ -6,6 +6,7 @@ import PerformanceChart from '@/components/PerformanceChart';
 import NavValueCard from '@/components/NavValueCard';
 import Navbar from '@/components/Navbar';
 import { useRouter } from "next/navigation";
+import { useSession, signOut } from 'next-auth/react';
 
 const Dashboard = () => {
   type NavData = {
@@ -13,110 +14,71 @@ const Dashboard = () => {
     nav: string;
     total_units: string;
   };
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [navData, setNavData] = useState<NavData | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
 
   // New state for asset allocations from Fireblocks
   const [assetAllocations, setAssetAllocations] = useState<any>([]);
   const [isAssetLoading, setIsAssetLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/signin");
-    } else {
-      setAuthChecked(true);
+    if (status === 'unauthenticated') {
+      router.push('/signin');
     }
-  }, [router]);
+  }, [status, router]);
 
+  // Fetch NAV data
   useEffect(() => {
-    const fetchNavData = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.warn('No JWT token found');
-        setIsLoading(false);
-        return;
-      }
-      try {
-        const res = await fetch('/api/nav', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+    if (status !== 'authenticated') return;
 
-        if (res.status === 401) {
-          localStorage.removeItem("token"); // clear expired token
-          router.push("/signin");           // redirect
-          return;
-        }
-        
+    const fetchNav = async () => {
+      try {
+        const res = await fetch('/api/nav');
+        if (!res.ok) throw new Error('Failed to fetch NAV');
         const data = await res.json();
-        console.log("✅ NAV data:", data);
-  
         setNavData(data);
       } catch (err) {
-        console.error('❌ Error fetching NAV data:', err);
+        console.error('❌ NAV Error:', err);
       } finally {
         setIsLoading(false);
       }
     };
-  
-    if (authChecked) fetchNavData();
-  }, [authChecked, router]);
 
-  useEffect(() => {
-    const fetchAssetBreakdown = async () => {
-      const token = localStorage.getItem('token');
-  
-      if (!token) {
-        console.warn('No JWT token found');
-        setIsAssetLoading(false);
-        return;
-      }
-  
-      try {
-        const res = await fetch('/api/asset-breakdown', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+    fetchNav();
+  }, [status]);
 
-        if (res.status === 401) {
-          localStorage.removeItem("token"); // clear expired token
-          router.push("/signin");           // redirect
-          return;
-        }
-        
-        const data = await res.json();
-        console.log('Asset allocations:', data.assets);
-  
-        // Compute total value
-        let totalValue = 0;
-        data.assets.forEach((asset) => {
-          totalValue += parseFloat(asset.value);
-        });
-  
-        // Compute percentage
-        data.assets.forEach((asset) => {
-          asset.percentage = ((parseFloat(asset.value) / totalValue) * 100).toFixed(2);
-        });
-  
-        console.log('Processed assets:', data.assets);
-        setAssetAllocations(data.assets);
-      } catch (err) {
-        console.error('❌ Error fetching asset allocation:', err);
-      } finally {
-        setIsAssetLoading(false);
-      }
-    };
-  
-    if (authChecked) fetchAssetBreakdown();
-  }, [authChecked, router]);
-  
-  if (!authChecked) return null;
+// Fetch asset breakdown
+useEffect(() => {
+  if (status !== 'authenticated') return;
 
+  const fetchAssets = async () => {
+    try {
+      const res = await fetch('/api/asset-breakdown');
+      if (!res.ok) throw new Error('Failed to fetch assets');
+      const data = await res.json();
+
+      let totalValue = 0;
+      data.assets.forEach((a) => {
+        totalValue += parseFloat(a.value);
+      });
+
+      data.assets.forEach((a) => {
+        a.percentage = ((parseFloat(a.value) / totalValue) * 100).toFixed(2);
+      });
+
+      setAssetAllocations(data.assets);
+    } catch (err) {
+      console.error('❌ Asset error:', err);
+    } finally {
+      setIsAssetLoading(false);
+    }
+  };
+
+  fetchAssets();
+}, [status]);
+  
   // Animation variants for Framer Motion
   const containerVariants = {
     hidden: { opacity: 0 },

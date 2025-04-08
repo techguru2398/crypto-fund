@@ -1,6 +1,8 @@
 'use client';
 import Link from "next/link";
 import { useState } from "react";
+import { signIn, useSession } from "next-auth/react";
+import { useRouter } from 'next/navigation';
 
 const SignupPage = () => {
   const [fullName, setFullName] = useState("");
@@ -25,10 +27,11 @@ const SignupPage = () => {
 
       if (!res.ok) throw new Error(data.error || "Something went wrong");
 
-      setMessage({ type: "success", text: "Account created successfully!" });
-      setFullName("");
-      setEmail("");
-      setPassword("");
+      await signIn("credentials", {
+        email: email,
+        password: password,
+        callbackUrl: "/dashboard",
+      });
     } catch (err: any) {
       setMessage({ type: "error", text: err.message });
     } finally {
@@ -51,7 +54,7 @@ const SignupPage = () => {
                     {message.text}
                   </p>
                 )}
-                <button className="border-stroke text-gray-400 shadow-two mb-6 flex w-full items-center justify-center rounded-sm border px-6 py-3 text-base outline-none transition-all duration-300 border-transparent bg-[#2C303B] hover:border-primary hover:bg-primary/5 hover:text-primary hover:shadow-none">
+                <button onClick={()=>signIn('google', { callbackUrl: '/dashboard' })} className="border-stroke text-gray-400 shadow-two mb-6 flex w-full items-center justify-center rounded-sm border px-6 py-3 text-base outline-none transition-all duration-300 border-transparent bg-[#2C303B] hover:border-primary hover:bg-primary/5 hover:text-primary hover:shadow-none">
                   <span className="mr-3">
                     <svg
                       width="20"
@@ -85,7 +88,7 @@ const SignupPage = () => {
                       </defs>
                     </svg>
                   </span>
-                  Sign in with Google
+                  Sign up with Google
                 </button>
 
                 <div className="mb-8 flex items-center justify-center">

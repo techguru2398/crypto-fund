@@ -5,6 +5,7 @@ import { Search, Filter } from 'lucide-react';
 import TransactionItem from '@/components/TransactionItem';
 import Navbar from '@/components/Navbar';
 import { useRouter } from "next/navigation";
+import { useSession, signOut } from 'next-auth/react';
 
 interface Transaction {
   id: string;
@@ -17,45 +18,33 @@ interface Transaction {
 
 const Transactions = () => {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [isLoading, setIsLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filter, setFilter] = useState<'all' | 'deposit' | 'withdrawal'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
+    if (status === "unauthenticated") {
       router.push("/signin");
-    } else {
-      setAuthChecked(true);
     }
-  }, [router]);
+  }, [status, router]);
 
   useEffect(() => {
     // Replace the mock API fetch with a real fetch from the portfolio endpoint.
     // The portfolio endpoint returns { email, investments, redemptions }
     const fetchhistoryData = () => {
       const email = "jaide@atmax.in"; // adjust as needed
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.warn('No JWT token found');
-        setIsLoading(false);
-        return;
-      }
-      fetch(`/api/history?email=${encodeURIComponent(email)}`, {
+      fetch(`/api/history`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       })
         .then((res) => {
           if (res.status === 401) {
-            // Optional: handle expired token
-            localStorage.removeItem('token');
             router.push('/signin');
-            throw new Error('Unauthorized');
+            return;
           }
           return res.json();
         })
@@ -92,10 +81,11 @@ const Transactions = () => {
           setIsLoading(false);
         });
     }
-    if (authChecked) fetchhistoryData();
-  }, [authChecked, router]);
+    if (status === "authenticated") 
+      fetchhistoryData();
+  }, [status, router]);
 
-  if (!authChecked) return null;
+  if (status === 'unauthenticated') return null;
 
   const filteredTransactions = transactions.filter((tx) => {
     const matchesFilter = filter === 'all' || tx.type === filter;
