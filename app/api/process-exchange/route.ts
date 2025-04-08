@@ -37,18 +37,28 @@ export const POST = async (req: NextRequest) => {
         
         // Update the investment_log as complete
         await pool.query(`
-            UPDATE investment_log
-            SET status = 'complete'
-            WHERE id = ${id}
+          UPDATE investment_log
+          SET status = 'complete'
+          WHERE id = ${id}
         `);
 
         // Update investment_ledger
-        // await pool.query(`
-        //     INSERT INTO investment_ledger (email, amount_usd, asset_id, asset_share, asset_value, units, fireblocks_tx_id, timestamp)
-        //     VALUES
-        //     (${email}, ${amount_usd / 2}, 'BTC', 0.5, ${amount_usd / 2}, ${btcUnits}, ${btcOrder.order_id}, NOW()),
-        //     (${email}, ${amount_usd / 2}, 'LTC', 0.5, ${amount_usd / 2}, ${ltcUnits}, ${ltcOrder.order_id}, NOW())
-        // `);
+        await pool.query(`
+          INSERT INTO investment_ledger (email, amount_usd, asset_id, asset_share, asset_value, units, fireblocks_tx_id, timestamp)
+          VALUES
+          (${email}, ${amount_usd / 2}, 'BTC', 0.5, ${btcAmount}, ${units / 2}, ${btcTx.id}, NOW()),
+          (${email}, ${amount_usd / 2}, 'LTC', 0.5, ${ltcAmount}, ${units / 2}, ${ltcTx.id}, NOW())
+        `);
+
+        // Update user_units (upsert pattern)
+        await pool.query(`
+          INSERT INTO user_units (email, units, last_updated)
+          VALUES ($1, $2, NOW())
+          ON CONFLICT (email)
+          DO UPDATE SET
+            units = user_units.units + $2,
+            last_updated = NOW()
+        `, [email, units]);
 
         usdBalance -= amount_usd;
     }
