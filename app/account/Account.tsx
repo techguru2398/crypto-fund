@@ -78,7 +78,17 @@ const Account = () => {
         "Authorization": `Bearer ${token}`,
       },
     })
-    const data = await res.json()
+    if (res.status === 401) {
+      localStorage.removeItem("token"); // clear expired token
+      router.push("/signin");           // redirect
+      return;
+    }
+    const data = await res.json();
+    if (!res.ok || data.success == false){
+      console.log("res:", data.error);
+      return;
+    }
+    console.log("token : ", data);
     setKycToken(data.token)
     setShowKycModal(true);
   }
