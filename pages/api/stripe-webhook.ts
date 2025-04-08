@@ -1,6 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Stripe from 'stripe';
 import getRawBody from "raw-body";
+import { pool } from '@/lib/db';
+import { getLatestNAV } from '@/lib/nav';
 
 export const config = {
     api: {
@@ -36,13 +38,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log("amount_received: ", pi.amount_received);
       const metadata = pi.metadata || {};
       const email = metadata.user_email;
+      const amount_usd = pi.amount_received / 100;
+      const nav = await getLatestNAV();
 
       if (metadata.type === 'sip') {
         console.log(`✅ SIP payment succeeded for ${email}`);
-        // 🔁 Handle SIP: calculate fund units, update investment_ledger, etc.
+        const units = amount_usd / nav;
+        await pool.query(
+          'INSERT INTO investment_log (email, amount_usd, nav, units, timestamp, status, is_sip) VALUES ($1, $2, $3, $4, NOW(), $5, $6)',
+          [email, amount_usd, nav, units, 'pending', true]
+        );
       } else if (metadata.type === 'checkout') {
         console.log(`✅ Manual Checkout payment succeeded for ${email}`);
-        // 🛒 Handle manual investment from Checkout
+        await pool.query(
+          'INSERT INTO investment_log (email, amount_usd, nav, units, timestamp, status, is_sip) VALUES ($1, $2, $3, $4, NOW(), $5, $6)',
+          [email, amount_usd, metadata.nav, metadata.units, 'pending', false]
+        );
       } else {
         console.warn('⚠️ Unknown payment type – skipping');
       }

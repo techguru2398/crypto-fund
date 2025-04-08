@@ -75,21 +75,11 @@ async function processSIP(sip: any, nav: number) {
     else if (freq === 'weekly') nextRun = addDays(nextRun, 7);
     else nextRun = addMonths(nextRun, 1);
 
-    // await pool.query(
-    //   `UPDATE sip_schedule SET next_run = $1 WHERE id = $2`,
-    //   [nextRun, sip.id]
-    // );
-    // await pool.query(
-    //   'INSERT INTO investment_log (email, amount_usd, nav, units, timestamp, status, is_sip) VALUES ($1, $2, $3, $4)',
-    //   [sip.email, sip.amount_usd, nav, units, now, 'pending', true]
-    // );
+    await pool.query(
+      `UPDATE sip_schedule SET next_run = $1 WHERE id = $2`,
+      [nextRun, sip.id]
+    );
 
-    // await pool.query(
-    //   `INSERT INTO user_units (email, units, last_updated)
-    //    VALUES ($1, $2, $3)
-    //    ON CONFLICT (email) DO UPDATE SET units = user_units.units + $2, last_updated = $3`,
-    //   [sip.email, units, now]
-    // );
     console.log(`✅ SIP executed for ${sip.email}: $${sip.amount_usd} → ${units.toFixed(4)} units`);
   } catch (err) {
     console.error('Payment failed for user', sip.email, err);

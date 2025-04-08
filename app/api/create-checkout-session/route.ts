@@ -14,7 +14,10 @@ async function handler(req: NextRequest, user: any) {
     
     const { destination_amount, input_method } = await req.json();
     
-    const amount_usd = input_method == 'fiat' ? destination_amount : destination_amount * await getLatestNAV();
+    const nav = await getLatestNAV();
+    const amount_usd = input_method == 'fiat' ? destination_amount : destination_amount * nav;
+    const units = input_method == 'fiat' ? destination_amount / nav : destination_amount;
+
     const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         mode: 'payment',
@@ -36,11 +39,15 @@ async function handler(req: NextRequest, user: any) {
         metadata: {
             type: 'checkout',
             user_email: user.email,
+            nav: nav,
+            units: units,
         },
         payment_intent_data: {
           metadata: {
             type: 'checkout',
             user_email: user.email,
+            nav: nav,
+            units: units,
           }
         }
     });

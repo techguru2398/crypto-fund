@@ -77,10 +77,7 @@ export async function POST(req: NextRequest) {
     }
   } else if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
-
-    // ✅ Store payment info in DB
     console.log('Payment received:', session.amount_total, session.customer_email);
-    // You can now log to investment_log and later convert to USDC via Fireblocks
   }
 
   return new NextResponse('Webhook received', { status: 200 });
