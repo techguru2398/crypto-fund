@@ -13,7 +13,6 @@ async function handler(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   try {
-    console.log("session: ", session);
     const email = session.user.email;
     const result = await pool.query(
         `SELECT * FROM user_info WHERE email = $1`,

@@ -25,11 +25,11 @@ async function handler(req: NextRequest) {
     let customerId = result.rows[0].stripe_customer_id;
     if(!customerId){
         const customer = await stripe.customers.create({ email });
+        customerId = customer.id;
         await pool.query(
             'UPDATE user_info SET stripe_customer_id = $1 WHERE email = $2',
             [customerId, email]
         );
-        customerId = customer.id;
     }
     console.log("customer id: ", customerId);
     const setupIntent = await stripe.setupIntents.create({

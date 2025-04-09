@@ -57,7 +57,7 @@ async function handler(req: NextRequest ) {
           }
         }
     });
-    console.log("checkout session: ", checkoutSession);
+    // console.log("checkout session: ", checkoutSession);
     return NextResponse.json({ id: checkoutSession.id });
 }
 

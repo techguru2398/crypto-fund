@@ -48,15 +48,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           'INSERT INTO investment_log (email, amount_usd, nav, units, timestamp, status, is_sip) VALUES ($1, $2, $3, $4, NOW(), $5, $6)',
           [email, amount_usd, nav, units, 'pending', true]
         );
+        await logInvestment(email, amount_usd, units);
       } else if (metadata.type === 'checkout') {
         console.log(`✅ Manual Checkout payment succeeded for ${email}`);
         await pool.query(
           'INSERT INTO investment_log (email, amount_usd, nav, units, timestamp, status, is_sip) VALUES ($1, $2, $3, $4, NOW(), $5, $6)',
           [email, amount_usd, metadata.nav, metadata.units, 'pending', false]
         );
+        await logInvestment(email, amount_usd, metadata.units);
       } else {
         console.warn('⚠️ Unknown payment type – skipping');
       }
+
       break;
     }
 
@@ -92,4 +95,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   return res.status(200).send('Webhook received');
+}
+
+// added for the test
+import axios from 'axios';
+
+const COINGECKO_MAP: Record<string, string> = {
+  BTC_TEST: 'bitcoin',
+  LTC_TEST: 'litecoin',
+};
+
+const INDEX_ALLOCATION = {
+  BTC_TEST: 0.5,
+  LTC_TEST: 0.5,
+};
+
+async function getPriceUSD(assetId: string): Promise<number> {
+  const id = COINGECKO_MAP[assetId];
+  const res = await axios.get(
+    `https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`
+  );
+  return res.data[id]?.usd ?? 0;
+}
+
+async function logInvestment(email, amountUSD, newUnits) {
+  for (const assetId of Object.keys(INDEX_ALLOCATION)) {
+    const share = INDEX_ALLOCATION[assetId];
+    const value = amountUSD * share;
+    const unitsAllocated = newUnits * share;
+
+    const price = await getPriceUSD(assetId);
+    const asset_value = value / price;
+    await pool.query(
+      `INSERT INTO investment_ledger (email, amount_usd, asset_id, asset_share, asset_value, units)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [email, value, assetId, share, asset_value, unitsAllocated]
+    );
+  }
+  console.log(`📘 Logged investment for ${email}`);
 }
