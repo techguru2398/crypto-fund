@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Stripe from 'stripe';
-import getRawBody from "raw-body";
+import { buffer } from 'micro';
 import { pool } from '@/lib/db';
 import { getLatestNAV } from '@/lib/nav';
 
@@ -20,7 +20,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } 
 
   const sig = req.headers['stripe-signature']!;
-  const rawBody = await getRawBody(req);
+  let rawBody: Buffer;
+
+  try {
+    rawBody = await buffer(req);
+  } catch (err) {
+    console.error('Error getting raw body:', err);
+    return res.status(500).send('Internal Server Error');
+  }
   let event: Stripe.Event;
 
   try {
