@@ -14,8 +14,7 @@ async function handler(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { data } = body;
-    const { id, amount, fund_id, frequency, payment_method_id, status, startDate} = data;
+    const { sipId } = body;
     const email = session.user.email;
     if (!email) {
         return NextResponse.json({ error: "Missing 'email' query param" }, { status: 400 });
@@ -23,14 +22,14 @@ async function handler(req: NextRequest) {
     const now = new Date().toISOString();
     try {
         await pool.query(
-            `UPDATE sip_schedule SET amount_usd = $1, fund_id = $2, frequency = $3, stripe_payment_method_id = $4, status = $5, next_run = $6 WHERE id = $7`,
-            [amount, fund_id, frequency, payment_method_id, status, startDate, id]
+            `UPDATE sip_schedule SET status = $1 WHERE id = $2`,
+            ['cancelled', sipId]
         );
 
         const result = await pool.query(
             `SELECT * FROM sip_schedule WHERE email = $1 AND status != 'cancelled'`,
             [email]
-          );
+        );
       
         console.log("sip:", result.rows);
         return NextResponse.json({ success: true, data: result.rows });

@@ -7,6 +7,14 @@ import NavValueCard from '@/components/NavValueCard';
 import Navbar from '@/components/Navbar';
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from 'next-auth/react';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import { funds } from '@/lib/fund';
 
 const Dashboard = () => {
   type NavData = {
@@ -22,6 +30,7 @@ const Dashboard = () => {
   // New state for asset allocations from Fireblocks
   const [assetAllocations, setAssetAllocations] = useState<any>([]);
   const [isAssetLoading, setIsAssetLoading] = useState(true);
+  const [selectedFund, setSelectedFund] = useState(funds[0].id);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -108,12 +117,30 @@ useEffect(() => {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="mb-8"
+          className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
         >
-          <h1 className="text-3xl font-semibold">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Overview of your investment portfolio
-          </p>
+          <div>
+            <h1 className="text-3xl font-semibold">Dashboard</h1>
+            <p className="text-muted-foreground">Overview of your investment portfolio</p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label htmlFor="fund-select" className="text-sm text-muted-foreground">
+              Fund:
+            </label>
+            <Select value={selectedFund} onValueChange={setSelectedFund}>
+              <SelectTrigger id="fund-select" className="w-56">
+                <SelectValue placeholder="Select a fund" />
+              </SelectTrigger>
+              <SelectContent>
+                {funds.map((fund) => (
+                  <SelectItem key={fund.id} value={fund.id}>
+                    {fund.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </motion.header>
 
         <motion.div
@@ -163,7 +190,30 @@ useEffect(() => {
               </div>
             ) : (
               <div className="space-y-4">
-                {assetAllocations.map((asset, index) => (
+                {
+                  (() => {
+                    const selected = funds.find(fund => fund.id === selectedFund);
+                    if (!selected) return null;
+
+                    return selected.asset_ids.map((asset, index) => (
+                      <div key={index} className="space-y-2">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="font-medium">{asset}</span>
+                          <span>{selected.share[index]}%</span>
+                        </div>
+                        <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${selected.share[index]}%` }}
+                            transition={{ duration: 1, delay: index * 0.2 }}
+                            className="h-full bg-primary rounded-full"
+                          />
+                        </div>
+                      </div>
+                    ));
+                  })()
+                }
+                {/* {assetAllocations.map((asset, index) => (
                   <div key={index} className="space-y-2">
                     <div className="flex justify-between items-center text-sm">
                       <span className="font-medium">{asset.name}</span>
@@ -180,7 +230,7 @@ useEffect(() => {
                       />
                     </div>
                   </div>
-                ))}
+                ))} */}
               </div>
             )}
           </motion.div>

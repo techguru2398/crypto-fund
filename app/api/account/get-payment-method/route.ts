@@ -20,10 +20,13 @@ async function handler(req: NextRequest) {
   try {
     const email = session.user.email;
     const result = await pool.query(
-        `SELECT * FROM user_info WHERE email = $1`,
+        `SELECT stripe_customer_id FROM user_info WHERE email = $1`,
         [email]
     );
     const user = result.rows[0];
+    if(!user.stripe_customer_id) {
+      return NextResponse.json({ payment_methods: [] });
+    }
     const paymentMethods = await stripe.paymentMethods.list({
       customer: user.stripe_customer_id,
       type: 'card',
@@ -38,13 +41,10 @@ async function handler(req: NextRequest) {
       }
     })
 
-    return NextResponse.json({
-      ...user,
-      payment_methods: payment_methods
-    });
+    return NextResponse.json({ payment_methods: payment_methods });
   } catch (err: any) {
-    console.error('❌ Error in account info:', err.message);
-    return NextResponse.json({ error: 'Failed to fetch account info' }, { status: 500 });
+    console.error('❌ Get payment method error:', err.message);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 

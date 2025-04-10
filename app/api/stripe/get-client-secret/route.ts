@@ -12,25 +12,34 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 async function handler(req: NextRequest) {
     const corsResponse = applyCors(req);
     if (corsResponse) return corsResponse;
-
+    
     const session = await getServerSession(authOptions);
     if (!session) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const email = session.user.email;
-    try {
-        const { payment_method_id } = await req.json();
-        console.log("payment: ", payment_method_id);
+    const email = session.user.email as string;
+    const result = await pool.query(
+        `SELECT stripe_customer_id FROM user_info WHERE email = $1`,
+        [email]
+    );
+  
+    let customerId = result.rows[0].stripe_customer_id;
+    if(!customerId){
+        const customer = await stripe.customers.create({ email });
+        customerId = customer.id;
         await pool.query(
-            'UPDATE user_info SET stripe_payment_method_id = $1 WHERE email = $2',
-            [payment_method_id, email]
+            'UPDATE user_info SET stripe_customer_id = $1 WHERE email = $2',
+            [customerId, email]
         );
-        return NextResponse.json({ success: true });
-      } catch (err: any) {
-        console.error("❌ Save stripe payment method error:", err.message);
-        return NextResponse.json({ error: "Save strpe payment method failed" }, { status: 500 });
-      }
+    }
+
+    const setupIntent = await stripe.setupIntents.create({
+        customer: customerId,
+        automatic_payment_methods: { enabled: true },
+        usage: 'off_session',
+    });
+
+    return NextResponse.json({ client_secret: setupIntent.client_secret, customerId: customerId });
 }
 
 export const POST = handler;
