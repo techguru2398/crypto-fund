@@ -247,7 +247,7 @@ const Account = () => {
         return;
       }
       const result = await res.json();
-      if (!res.ok || result.success == false){
+      if (!res.ok || result.error){
         console.log("res:", result.error);
         toast({
           title: "Remove Card failed",

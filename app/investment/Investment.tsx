@@ -217,6 +217,14 @@ const Investment = () => {
       }
 
       const data = await res.json();
+      if(data.error) {
+        toast({
+          title: "Deposit failed",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
       const stripe = await stripePromise;
       await stripe?.redirectToCheckout({ sessionId: data.id });
   
@@ -274,7 +282,7 @@ const Investment = () => {
       });
 
       const result = await res.json();
-      if (!res.ok || result.success == false){
+      if (!res.ok || result.error){
         console.log("res:", result.error);
         toast({
           title: "Create Sip failed",

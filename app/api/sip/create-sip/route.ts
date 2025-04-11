@@ -13,10 +13,18 @@ async function handler(req: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const email = session.user.email;
+    const user = await pool.query(
+        `SELECT verified FROM user_info WHERE email = $1`,
+        [email]
+    );
+    if(!user.rows[0].verified) {
+        return NextResponse.json({ error: "You are not verified yet." });
+    }
+    
     const body = await req.json();
     const { data } = body;
     const { amount, frequency, status, startDate, fund_id, payment_method_id} = data;
-    const email = session.user.email;
     const now = new Date().toISOString();
     try {
         // const result = await pool.query(

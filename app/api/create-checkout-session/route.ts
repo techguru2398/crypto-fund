@@ -4,6 +4,7 @@ import { applyCors } from '@/lib/cors';
 import { getServerSession } from "next-auth";
 import { authOptions } from '@/lib/auth';
 import { getLatestNAV } from '@/lib/nav';
+import { pool } from '@/lib/db';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2022-11-15',
@@ -17,7 +18,16 @@ async function handler(req: NextRequest ) {
     if (!session) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
+
+    const email = session.user.email;
+    const result = await pool.query(
+        `SELECT verified FROM user_info WHERE email = $1`,
+        [email]
+    );
+    if(!result.rows[0].verified) {
+        return NextResponse.json({ error: "You are not verified yet." });
+    }
+
     const { destination_amount, input_method } = await req.json();
     
     const nav = await getLatestNAV();

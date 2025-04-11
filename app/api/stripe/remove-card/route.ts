@@ -3,7 +3,8 @@ import Stripe from 'stripe';
 import { applyCors } from '@/lib/cors';
 import { getServerSession } from "next-auth";
 import { authOptions } from '@/lib/auth';
-
+import { pool } from '@/lib/db';
+ 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2022-11-15',
 });
@@ -21,6 +22,14 @@ async function handler(req: NextRequest) {
     const body = await req.json();
     const { payment_method_id, customerId } = body;
     try {
+        const sip = await pool.query(
+            `SELECT * FROM sip_schedule WHERE email = $1 AND status != 'cancelled' AND stripe_payment_method_id = $2`,
+            [email, payment_method_id]
+        );
+        if(sip.rows.length > 0) {
+            return NextResponse.json({ error: "This payment method is connected the SIP" });
+        }
+
         const detached = await stripe.paymentMethods.detach(payment_method_id);
         console.log("detached: ", detached);
         const paymentMethods = await stripe.paymentMethods.list({
