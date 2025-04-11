@@ -187,17 +187,34 @@ const Account = () => {
       });
       console.log("payment method: ", result.setupIntent);
       if (result.setupIntent?.payment_method) {
-        await fetch('/api/stripe/save-card', {
+        const res = await fetch('/api/stripe/save-card', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ payment_method_id: result.setupIntent.payment_method, customerId: customerId }),
         });
+        if (res.status === 401) {
+          router.push("/signin");   
+          return;
+        }
+        const data = await res.json();
+        if (!res.ok || data.success == false){
+          toast({
+            title: "Save Card failed",
+            description: data.error,
+            variant: "destructive",
+          });
+          return;
+        }
         toast({
           title: "Success",
           description: "Card saved successfully!'",
         });
+        setAccount({
+          ...account!,
+          payment_methods: data.payment_methods
+        })
         setShowStripePaymentModal(false);
       } else {
         toast({

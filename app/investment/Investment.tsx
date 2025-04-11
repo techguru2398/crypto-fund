@@ -99,7 +99,7 @@ const Investment = () => {
    // Fetch payment method state on component mount
    useEffect(() => {
     const fetchPaymentMethods = () => {
-      fetch(`/api/account/get-payment-method`, {
+      fetch(`/api/stripe/get-payment-method`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

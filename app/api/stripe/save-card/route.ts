@@ -28,10 +28,24 @@ async function handler(req: NextRequest) {
             'UPDATE user_info SET stripe_payment_method_id = $1 WHERE email = $2',
             [payment_method_id, email]
         );
-        return NextResponse.json({ success: true });
+        const paymentMethods = await stripe.paymentMethods.list({
+          customer: customerId,
+          type: 'card',
+        });
+        const payment_methods = paymentMethods.data.map((payment) => {
+          return {
+            id: payment.id,
+            brand: payment.card?.brand,
+            exp_month: payment.card?.exp_month,
+            exp_year: payment.card?.exp_year,
+            last4: payment.card?.last4
+          }
+        })
+    
+        return NextResponse.json({ success: true, payment_methods: payment_methods });
       } catch (err: any) {
         console.error("❌ Save stripe payment method error:", err.message);
-        return NextResponse.json({ error: "Save strpe payment method failed" }, { status: 500 });
+        return NextResponse.json({ error: err.message }, { status: 500 });
       }
 }
 
