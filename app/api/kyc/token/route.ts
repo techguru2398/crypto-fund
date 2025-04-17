@@ -60,7 +60,7 @@ async function handler(req: NextRequest) {
 }
 
 function getTimestamp() {
-  const timestamp = Date.now();
+  const timestamp = Date.now() - 1 * 60 * 60 * 1000;
   return Math.floor(timestamp / 1000).toString()
 }
 

@@ -786,12 +786,12 @@ const Investment = () => {
                     <div key={index} className="space-y-2">
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-medium">{asset}</span>
-                        <span>{selected.share[index]}%</span>
+                        <span>{selected.normal_weight[index] * 100}%</span>
                       </div>
                       <div className="h-2 bg-secondary rounded-full overflow-hidden">
                         <motion.div
                           initial={{ width: 0 }}
-                          animate={{ width: `${selected.share[index]}%` }}
+                          animate={{ width: `${selected.normal_weight[index] * 100}%` }}
                           transition={{ duration: 1, delay: index * 0.2 }}
                           className="h-full bg-primary rounded-full"
                         />

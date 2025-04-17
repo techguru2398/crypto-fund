@@ -31,7 +31,6 @@ async function handler(req: NextRequest) {
         }
 
         const detached = await stripe.paymentMethods.detach(payment_method_id);
-        console.log("detached: ", detached);
         const paymentMethods = await stripe.paymentMethods.list({
             customer: customerId,
             type: 'card',

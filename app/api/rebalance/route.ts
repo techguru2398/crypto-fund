@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { rebalancePortfolio } from '@/lib/rebalance';
 import { applyCors } from '@/lib/cors';
+import { funds } from '@/lib/fund';
 
 export async function POST(req: NextRequest) {
   const corsResponse = applyCors(req);
   if (corsResponse) return corsResponse;
 
   try {
-    await rebalancePortfolio();
+    for (const fund of funds) {
+      await rebalancePortfolio(fund.id);
+    }
     return NextResponse.json({ status: 'Rebalance triggered' });
   } catch (err: any) {
     console.error('❌ Rebalance error:', err.message);
-    return NextResponse.json({ error: 'Rebalance failed' }, { status: 500 });
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 

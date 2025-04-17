@@ -701,7 +701,7 @@ const Account = () => {
         </div>
       )}
 
-{showStripePaymentModal && (
+      {showStripePaymentModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
           <div className="bg-background rounded-2xl shadow-xl w-full max-w-lg p-8 relative">
             <button

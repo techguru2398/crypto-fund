@@ -11,12 +11,14 @@ interface PerformanceChartProps {
   title?: string;
   period?: '1W' | '1M' | '3M' | '1Y' | 'All';
   height?: number;
+  fundId?: string;
 }
 
 const PerformanceChart: React.FC<PerformanceChartProps> = ({
   title = 'Fund Performance',
   period = '1Y',
-  height = 300
+  height = 300,
+  fundId = 'hodl_index',
 }) => {
   const [chartData, setChartData] = useState<PerformanceData[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>(period);
@@ -25,7 +27,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({
   useEffect(() => {
     // Fetch NAV series data from the API endpoint
     setIsLoading(true);
-    fetch('/api/nav-chart')
+    fetch(`/api/nav-chart?fundId=${fundId}`)
       .then((res) => res.json())
       .then((json) => {
         // Map API data { date, nav } to chart data with { date, value }
@@ -40,7 +42,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({
         console.error('Error fetching NAV chart data:', error);
         setIsLoading(false);
       });
-  }, [selectedPeriod]); // Reloads if the period selection changes (currently not used by the API)
+  }, [selectedPeriod, fundId]); // Reloads if the period selection changes (currently not used by the API)
 
   const periods = [
     { label: '1W', value: '1W' },

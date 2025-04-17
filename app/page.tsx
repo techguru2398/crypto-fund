@@ -87,6 +87,15 @@ export default function Home() {
                 Invest Now
               </motion.button>
             </Link>
+            <Link href="/admin">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="bg-secondary text-secondary-foreground px-8 py-3 rounded-lg font-medium"
+              >
+                View Admin Dashboard
+              </motion.button>
+            </Link>
           </div>
         </motion.div>
         
