@@ -10,8 +10,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 
 // Read Fireblocks private key from file
-const privateKeyPath = path.join(process.cwd(), process.env.FIREBLOCKS_SECRET_PATH!);
-const fireblocksPrivateKey = fs.readFileSync(privateKeyPath, 'utf8');
+const fireblocksPrivateKey = Buffer.from(process.env.FIREBLOCKS_SECRET_B64!, 'base64').toString('utf8');
 
 const fireblocks = new FireblocksSDK(
   fireblocksPrivateKey,

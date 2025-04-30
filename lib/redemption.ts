@@ -4,8 +4,10 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 
+const fireblocksPrivateKey = Buffer.from(process.env.FIREBLOCKS_SECRET_B64!, 'base64').toString('utf8');
+
 const fireblocks = new FireblocksSDK(
-  fs.readFileSync(path.resolve(process.env.FIREBLOCKS_SECRET_PATH!), 'utf8'),
+  fireblocksPrivateKey,
   process.env.FIREBLOCKS_API_KEY!,
   'https://sandbox-api.fireblocks.io'
 );

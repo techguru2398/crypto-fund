@@ -4,8 +4,10 @@ import fs from 'fs';
 import axios from 'axios';
 import { applyCors } from '@/lib/cors';
 
+const fireblocksPrivateKey = Buffer.from(process.env.FIREBLOCKS_SECRET_B64!, 'base64').toString('utf8');
+
 const fireblocks = new FireblocksSDK(
-  fs.readFileSync(process.env.FIREBLOCKS_SECRET_PATH!, 'utf8'),
+  fireblocksPrivateKey,
   process.env.FIREBLOCKS_API_KEY!,
   'https://sandbox-api.fireblocks.io'
 );
