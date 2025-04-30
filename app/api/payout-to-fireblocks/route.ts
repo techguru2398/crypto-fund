@@ -70,7 +70,7 @@ async function handler(req: NextRequest ) {
   }
 }
 
-export const POST = handler;
+export const GET = handler;
 
 export function OPTIONS(req: NextRequest) {
     return applyCors(req) ?? NextResponse.json({});

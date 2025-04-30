@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { runSIPForDueUsers } from '@/lib/sip';
 import { applyCors } from '@/lib/cors';
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   const cors = applyCors(req);
   if (cors) return cors;
 

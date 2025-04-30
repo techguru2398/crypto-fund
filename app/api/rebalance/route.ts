@@ -3,7 +3,7 @@ import { rebalancePortfolio } from '@/lib/rebalance';
 import { applyCors } from '@/lib/cors';
 import { funds } from '@/lib/fund';
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   const corsResponse = applyCors(req);
   if (corsResponse) return corsResponse;
 
