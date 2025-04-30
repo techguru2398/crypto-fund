@@ -1,24 +1,28 @@
 {
   "crons": [
     {
-      "schedule": "0 6 * * *",
-      "path": "/api/sip"
-    },
-    {
-      "schedule": "0 4 * * *",
-      "path": "/api/rebalance"
-    },
-    {
-      "schedule": "0 4 * * *",
+      "schedule": "0 1 * * *",
       "path": "/api/payout-to-fireblocks"
     },
     {
-      "schedule": "0 4 * * *",
+      "schedule": "0 2 * * *",
       "path": "/api/bank-to-exchange"
     },
     {
-      "schedule": "0 4 * * *",
+      "schedule": "0 3 * * *",
       "path": "/api/process-exchange"
+    },
+    {
+      "schedule": "0 4 * * *",
+      "path": "/api/nav/log"
+    },
+    {
+      "schedule": "0 5 * * *",
+      "path": "/api/rebalance"
+    },
+    {
+      "schedule": "0 6 * * *",
+      "path": "/api/sip"
     }
   ]
 }
