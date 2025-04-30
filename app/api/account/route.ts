@@ -24,6 +24,12 @@ async function handler(req: NextRequest) {
         [email]
     );
     const user = result.rows[0];
+    if(!user.stripe_customer_id) {
+      return NextResponse.json({
+        ...user,
+        payment_methods: []
+      });
+    }
     const paymentMethods = await stripe.paymentMethods.list({
       customer: user.stripe_customer_id,
       type: 'card',

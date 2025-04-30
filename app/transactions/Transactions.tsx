@@ -34,7 +34,6 @@ const Transactions = () => {
     // Replace the mock API fetch with a real fetch from the portfolio endpoint.
     // The portfolio endpoint returns { email, investments, redemptions }
     const fetchhistoryData = () => {
-      const email = "jaide@atmax.in"; // adjust as needed
       fetch(`/api/history`, {
         method: 'GET',
         headers: {
@@ -56,8 +55,8 @@ const Transactions = () => {
             type: 'deposit',
             date: new Date(inv.timestamp).toLocaleDateString(),
             amount: `$${parseFloat(inv.amount_usd).toFixed(2)}`,
-            status: 'completed',
-            description: `Investment in ${inv.asset_id}`
+            status: inv.status,
+            description: `Investment in ${inv.fund_id}`
           }));
 
           const redemptionTransactions: Transaction[] = data.redemptions.map((red: any, index: number) => ({
@@ -65,8 +64,8 @@ const Transactions = () => {
             type: 'withdrawal',
             date: new Date(red.timestamp).toLocaleDateString(),
             amount: `$${parseFloat(red.value_usd).toFixed(2)}`,
-            status: 'completed',
-            description: `Redemption`
+            status: red.status,
+            description: `Redemption from ${red.fund_id}`
           }));
 
           // Combine the two arrays and sort by date descending

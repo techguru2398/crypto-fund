@@ -2,7 +2,7 @@ export const funds = [
     {
       id: "hodl_index",
       name: "HODL Index",
-      asset_ids: ["BTC_TEST", "LTC_TEST", "ETH_TEST5", "XRP_TEST", "USDT_BSC_TEST"],
+      asset_ids: ["BTC", "LTC", "ETH", "XRP", "USDT_BSC"],
       normal_weight: [0.2, 0.2, 0.2, 0.2, 0.2],
       volatile_weight: [0.125, 0.125, 0.125, 0.125, 0.5],
       vault_name: "hodl_fund_main",
@@ -10,7 +10,7 @@ export const funds = [
     {
       id: "btc_ltc",
       name: "BTC/LTC Index",
-      asset_ids: ["BTC_TEST", "LTC_TEST"],
+      asset_ids: ["BTC", "LTC"],
       normal_weight: [0.5, 0.5],
       volatile_weight: [0.5, 0.5],
       vault_name: "hodl_fund_main",
@@ -18,7 +18,7 @@ export const funds = [
     {
       id: "defi_core",
       name: "DeFi Core Index",
-      asset_ids: ["AAVE_TEST", "UNI_TEST", "COMP_TEST"],
+      asset_ids: ["AAVE", "UNI", "COMP"],
       normal_weight: [0.4, 0.35, 0.25],
       volatile_weight: [0.4, 0.35, 0.25],
       vault_name: "hodl_fund_main",
@@ -26,7 +26,7 @@ export const funds = [
     {
       id: "ai_infra",
       name: "AI & Infrastructure Index",
-      asset_ids: ["FET_TEST", "GRT_TEST", "RNDR_TEST"],
+      asset_ids: ["FET", "GRT", "RNDR"],
       normal_weight: [0.3, 0.4, 0.3],
       volatile_weight: [0.3, 0.4, 0.3],
       vault_name: "hodl_fund_main",
@@ -34,19 +34,36 @@ export const funds = [
 ];
 
 export const COINGECKO_MAP: Record<string, string> = {
-  BTC_TEST: 'bitcoin',
-  LTC_TEST: 'litecoin',
-  ETH_TEST: 'ethereum',
-  ETH_TEST5: 'ethereum',
-  XRP_TEST: 'ripple',
-  USDT_TEST: 'tether',
-  USDT_BSC_TEST: 'tether',
-  SOL_TEST: 'solana',
-  AAVE_TEST: 'aave',
-  UNI_TEST: 'uniswap',
-  COMP_TEST: 'compound-governance-token',
-  FET_TEST: 'fetch-ai',
-  GRT_TEST: 'the-graph',
-  RNDR_TEST: 'render-token',
+  BTC: 'bitcoin',
+  LTC: 'litecoin',
+  ETH: 'ethereum',
+  ETH5: 'ethereum',
+  XRP: 'ripple',
+  USDT: 'tether',
+  USDT_BSC: 'tether',
+  SOL: 'solana',
+  AAVE: 'aave',
+  UNI: 'uniswap',
+  COMP: 'compound-governance-token',
+  FET: 'fetch-ai',
+  GRT: 'the-graph',
+  RNDR: 'render-token',
+};
+
+export const COINBASE_MAP: Record<string, string> = {
+  BTC: 'BTC-USD',
+  LTC: 'LTC-USD',
+  ETH: 'ETH-USD',
+  ETH5: 'ETH-USD',
+  XRP: 'XRP-USD',
+  USDT: 'USDT-USD',
+  USDT_BSC: 'USDT-USD',
+  SOL: 'SOL-USD',
+  AAVE: 'AAVE-USD',
+  UNI: 'UNI-USD',
+  COMP: 'COMP-USD',
+  FET: 'FET-USD',
+  GRT: 'GRT-USD',
+  RNDR: 'RNDR-USD',
 };
   

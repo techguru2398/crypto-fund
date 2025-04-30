@@ -28,9 +28,9 @@ async function handler(req: NextRequest ) {
         return NextResponse.json({ error: "You are not verified yet." });
     }
 
-    const { destination_amount, input_method } = await req.json();
+    const { destination_amount, input_method, fund_id } = await req.json();
     
-    const nav = await getLatestNAV();
+    const nav = await getLatestNAV(fund_id);
     const amount_usd = input_method == 'fiat' ? destination_amount : destination_amount * nav;
     const units = input_method == 'fiat' ? destination_amount / nav : destination_amount;
 
@@ -57,6 +57,7 @@ async function handler(req: NextRequest ) {
             user_email: session.user.email as string,
             nav: nav,
             units: units,
+            fund_id: fund_id,
         },
         payment_intent_data: {
           metadata: {
@@ -64,6 +65,7 @@ async function handler(req: NextRequest ) {
             user_email: session.user.email as string,
             nav: nav,
             units: units,
+            fund_id: fund_id,
           }
         }
     });

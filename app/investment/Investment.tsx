@@ -79,6 +79,12 @@ const Investment = () => {
   const [showCalendar, setShowCalendar] = useState(false);
   const [paymentMethodExist, setPaymentMethodExist] = useState(false);
   const [selectedFund, setSelectedFund] = useState(funds[0].id);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawForm, setWithdrawForm] = useState({
+    bankName: '',
+    accountNumber: '',
+    routingNumber: '',
+  });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -130,7 +136,7 @@ const Investment = () => {
   // Fetch portfolio data on component mount (using a hardcoded email for now)
   useEffect(() => {
     const fetchPortfolioData = () => {
-      fetch(`/api/portfolio`, {
+      fetch(`/api/portfolio?fundId=${selectedFund}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -195,7 +201,11 @@ const Investment = () => {
       setStep(2);
     } else {
       setIsSubmitting(true);
-      startCheckoutFlow();
+      if(type == "deposit") {
+        startCheckoutFlow();
+      } else {
+        startWithdrawFlow();
+      }
     }
   };
 
@@ -208,7 +218,8 @@ const Investment = () => {
         },
         body: JSON.stringify({
           destination_amount: parseFloat(amount),
-          input_method: inputMethod
+          input_method: inputMethod,
+          fund_id: selectedFund
         }),
       });
       if (res.status === 401) {
@@ -231,6 +242,55 @@ const Investment = () => {
       setTransactionComplete(true);
     } catch (error) {
       console.error("❌ Onramp Error:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const startWithdrawFlow = async () => {
+    try {
+      const res = await fetch("/api/withdraw", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          bankName: withdrawForm.bankName,
+          accountNumber: withdrawForm.accountNumber,
+          routingNumber: withdrawForm.routingNumber,
+          amount: parseFloat(amount),
+          fund_id: selectedFund,
+        }),
+      });
+  
+      if (res.status === 401) {
+        router.push("/signin");
+        return;
+      }
+  
+      const data = await res.json();
+      if (res.status !== 200 || data.error) {
+        toast({
+          title: "Withdrawal Failed",
+          description: data.error || "Unknown error",
+          variant: "destructive",
+        });
+        return;
+      }
+  
+      console.log('✅ Withdrawal Requested:', data);
+      setTransactionComplete(true);
+      // Redirect user to Transak KYC URL
+        // window.location.href = data.kycUrl;
+  
+      // setTransactionComplete(true);
+    } catch (error: any) {
+      console.error("❌ Withdrawal Error:", error.message);
+      toast({
+        title: "Withdrawal failed",
+        description: error.message,
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -390,7 +450,12 @@ const Investment = () => {
 
   const resetForm = () => {
     setAmount('');
-    setInputMethod('');
+    setInputMethod('fiat');
+    setWithdrawForm({
+      bankName: '',
+      accountNumber: '',
+      routingNumber: '',
+    });
     setStep(1);
     setTransactionComplete(false);
   };
@@ -474,7 +539,10 @@ const Investment = () => {
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-secondary text-secondary-foreground'
                   }`}
-                  onClick={() => setType('deposit')}
+                  onClick={() => {
+                    resetForm();
+                    setType('deposit')
+                  }}
                 >
                   Deposit
                 </button>
@@ -484,7 +552,10 @@ const Investment = () => {
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-secondary text-secondary-foreground'
                   }`}
-                  onClick={() => setType('withdraw')}
+                  onClick={() => {
+                    resetForm();
+                    setType('withdraw')
+                  }}
                 >
                   Withdraw
                 </button>
@@ -526,7 +597,7 @@ const Investment = () => {
                       </div>
                     </div>
                     <div className="flex justify-between text-sm text-muted-foreground">
-                      <span className={step >= 1 ? 'text-primary font-medium' : ''}>Input Method</span>
+                      <span className={step >= 1 ? 'text-primary font-medium' : ''}>{type == "deposit" ? "Input Method" : "Bank Info"}</span>
                       <span className={step >= 2 ? 'text-primary font-medium' : ''}>Amount</span>
                     </div>
                   </div>
@@ -537,38 +608,77 @@ const Investment = () => {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3 }}
                     >
-                      <label className="block text-sm font-medium mb-4">
-                        Select your input method
-                      </label>
-                      
-                      <div className="space-y-3 mb-6">
-                        {[
-                          { id: 'fiat', label: 'Enter the amount of fiat to invest.', icon: <BadgeDollarSign size={20} /> },
-                          { id: 'unit', label: 'Enter the number of units to buy.', icon: <SquareActivity size={20} /> },
-                        ].map((method) => (
-                          <div
-                            key={method.id}
-                            onClick={() => setInputMethod(method.id)}
-                            className={`flex items-center p-4 border rounded-lg cursor-pointer transition-colors ${
-                              inputMethod === method.id
-                                ? 'border-primary bg-primary/10'
-                                : 'border-input hover:bg-secondary/50'
-                            }`}
-                          >
-                            <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mr-3">
-                              {method.icon}
-                            </div>
-                            <span className="font-medium">{method.label}</span>
-                            {inputMethod === method.id && (
-                              <div className="ml-auto w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
+                      {type === 'deposit' ? (
+                        <>
+                          <label className="block text-sm font-medium mb-4">
+                            Select your input method
+                          </label>
+                          
+                          <div className="space-y-3 mb-6">
+                            {[
+                              { id: 'fiat', label: 'Enter the amount of fiat to invest.', icon: <BadgeDollarSign size={20} /> },
+                              { id: 'unit', label: 'Enter the number of units to buy.', icon: <SquareActivity size={20} /> },
+                            ].map((method) => (
+                              <div
+                                key={method.id}
+                                onClick={() => setInputMethod(method.id)}
+                                className={`flex items-center p-4 border rounded-lg cursor-pointer transition-colors ${
+                                  inputMethod === method.id
+                                    ? 'border-primary bg-primary/10'
+                                    : 'border-input hover:bg-secondary/50'
+                                }`}
+                              >
+                                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mr-3">
+                                  {method.icon}
+                                </div>
+                                <span className="font-medium">{method.label}</span>
+                                {inputMethod === method.id && (
+                                  <div className="ml-auto w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  </div>
+                                )}
                               </div>
-                            )}
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* Withdraw flow: Show Bank Form directly */}
+                          <div className="space-y-6 mb-6">
+                            <div>
+                              <label className="block text-sm font-medium mb-2">Bank Name</label>
+                              <Input
+                                value={withdrawForm.bankName}
+                                onChange={(e) => setWithdrawForm({ ...withdrawForm, bankName: e.target.value })}
+                                required
+                                placeholder="e.g. JPMorgan Chase"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium mb-2">Account Number</label>
+                              <Input
+                                value={withdrawForm.accountNumber}
+                                onChange={(e) => setWithdrawForm({ ...withdrawForm, accountNumber: e.target.value })}
+                                required
+                                placeholder="Account Number"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium mb-2">Routing Number</label>
+                              <Input
+                                value={withdrawForm.routingNumber}
+                                onChange={(e) => setWithdrawForm({ ...withdrawForm, routingNumber: e.target.value })}
+                                required
+                                placeholder="Routing Number"
+                              />
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </motion.div>
                   )}
                   
@@ -642,7 +752,10 @@ const Investment = () => {
                   <button
                     onClick={handleContinue}
                     disabled={
-                      (step === 1 && !inputMethod) ||
+                      (step === 1 && (
+                        (type === 'deposit' && !inputMethod) ||
+                        (type === 'withdraw' && (!withdrawForm.bankName || !withdrawForm.accountNumber || !withdrawForm.routingNumber))
+                      )) ||
                       (step === 2 && (!amount || parseFloat(amount) <= 0)) ||
                       isSubmitting
                     }

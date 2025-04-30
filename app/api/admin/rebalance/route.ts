@@ -12,12 +12,10 @@ export async function POST(req: NextRequest) {
     if (!session) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const { searchParams } = new URL(req.url);
-
-    const fundId = searchParams.get('fundId');
-
+    const body = await req.json();
+    const { fundId } = body;
     try {
-        await rebalancePortfolio(fundId as string);
+        await rebalancePortfolio(fundId, true);
         return NextResponse.json({ status: 'Rebalance triggered' });
     } catch (err) {
         console.error('❌ Rebalance error:', err.message);

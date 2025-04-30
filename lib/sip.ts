@@ -6,6 +6,7 @@ import path from 'path';
 import axios from 'axios';
 import Stripe from 'stripe';
 import { addDays, addMonths } from 'date-fns';
+import { getLatestNAV } from './nav';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2022-11-15',
@@ -16,16 +17,6 @@ const fireblocks = new FireblocksSDK(
   process.env.FIREBLOCKS_API_KEY!,
   'https://sandbox-api.fireblocks.io'
 );
-
-const INDEX_ALLOCATION = {
-  BTC_TEST: 0.5,
-  LTC_TEST: 0.5,
-};
-
-const COINGECKO_MAP: Record<string, string> = {
-  BTC_TEST: 'bitcoin',
-  LTC_TEST: 'litecoin',
-};
 
 const VAULT_NAMES = {
   main: 'hodl_fund_main',
@@ -39,19 +30,8 @@ async function getVaultIdByName(name: string): Promise<string> {
   return vault.id;
 }
 
-async function getPriceUSD(assetId: string): Promise<number> {
-  const id = COINGECKO_MAP[assetId];
-  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`;
-  const res = await axios.get(url);
-  return res.data[id]?.usd ?? 0;
-}
-
-async function getLatestNAV(): Promise<number> {
-  const navRes = await pool.query('SELECT nav FROM nav_history ORDER BY date DESC LIMIT 1');
-  return parseFloat(navRes.rows[0].nav);
-}
-
-async function processSIP(sip: any, nav: number) {
+async function processSIP(sip: any) {
+  const nav = await getLatestNAV(sip.fund_id);
   const amountCents = Math.round(Number(sip.amount_usd) * 100);
   const units = Number(sip.amount_usd) / Number(nav);
   try {
@@ -65,10 +45,12 @@ async function processSIP(sip: any, nav: number) {
       metadata: {
         type: 'sip',
         sip_id: sip.id,
-        user_email: sip.email
+        user_email: sip.email,
+        nav: nav,
+        units: units,
+        fund_id: sip.fund_id,
       }
     });
-    const now = new Date().toISOString();
     let nextRun = new Date();
     const freq = sip.frequency || 'monthly';
     if (freq === 'daily') nextRun = addDays(nextRun, 1);
@@ -88,7 +70,6 @@ async function processSIP(sip: any, nav: number) {
 
 export async function runSIPForDueUsers() {
   const today = new Date().toISOString().split('T')[0];
-  const nav = await getLatestNAV();
   // const sipUsers = await pool.query(`
   //   SELECT s.*, u.stripe_customer_id, u.stripe_payment_method_id 
   //   FROM sip_schedule s 
@@ -104,7 +85,7 @@ export async function runSIPForDueUsers() {
   // console.log("sipusers: ", sipUsers);
   for (const sip of sipUsers.rows) {
     try {
-      await processSIP(sip, nav);
+      await processSIP(sip);
     } catch (err: any) {
       console.error(`❌ SIP failed for ${sip.email}:`, err.message);
     }

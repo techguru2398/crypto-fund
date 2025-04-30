@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFiatBalance, placeMarketOrder, waitForFill } from '@/lib/coinbase';
-import { transferToVault } from '@/lib/fireblocks';
+import { applyCors } from '@/lib/cors';
+import { transferCryptoToVault } from '@/lib/fireblocks';
 import { pool } from '@/lib/db';
+import { funds, COINBASE_MAP } from '@/lib/fund';
+import { getVIX } from '@/lib/vix';
+import { excuteExchange } from '@/lib/coinbase';
 
 
-export const POST = async (req: NextRequest) => {
+async function handler(req: NextRequest ) {
   try {
     const pendingInvestments = await pool.query(`
       SELECT * FROM investment_log
@@ -12,60 +16,26 @@ export const POST = async (req: NextRequest) => {
       ORDER BY timestamp ASC
     `);
 
-    let usdBalance = await getFiatBalance('USD');
-
     for (const investment of pendingInvestments.rows) {
-        const { id, email, amount_usd, nav, units } = investment;
-
-        if (amount_usd > usdBalance) {
-            console.log(`Skipping ID ${id} — not enough USD`);
-            continue;
+        const { id, email, amount_usd, units, fund_id } = investment;
+        const result = await excuteExchange(email, amount_usd, units, fund_id);
+        if(result) {
+          await pool.query(`
+            UPDATE investment_log
+            SET status = 'complete'
+            WHERE id = ${id}
+          `);
         }
-        const halfUsd = (amount_usd / 2).toFixed(2);
-    
-        // Step 1: Place market orders
-        const btcOrder = await placeMarketOrder('BTC-USD', halfUsd);
-        const ltcOrder = await placeMarketOrder('LTC-USD', halfUsd);
-    
-        // Step 2: Wait until filled
-        const btcAmount = await waitForFill(btcOrder.order_id);
-        const ltcAmount = await waitForFill(ltcOrder.order_id);
-    
-        // Step 3: Fireblocks transfers
-        const btcTx = await transferToVault('BTC', btcAmount);
-        const ltcTx = await transferToVault('LTC', ltcAmount);
-        
-        // Update the investment_log as complete
-        await pool.query(`
-          UPDATE investment_log
-          SET status = 'complete'
-          WHERE id = ${id}
-        `);
-
-        // Update investment_ledger
-        await pool.query(`
-          INSERT INTO investment_ledger (email, amount_usd, asset_id, asset_share, asset_value, units, fireblocks_tx_id, timestamp)
-          VALUES
-          (${email}, ${amount_usd / 2}, 'BTC', 0.5, ${btcAmount}, ${units / 2}, ${btcTx.id}, NOW()),
-          (${email}, ${amount_usd / 2}, 'LTC', 0.5, ${ltcAmount}, ${units / 2}, ${ltcTx.id}, NOW())
-        `);
-
-        // Update user_units (upsert pattern)
-        await pool.query(`
-          INSERT INTO user_units (email, units, last_updated)
-          VALUES ($1, $2, NOW())
-          ON CONFLICT (email)
-          DO UPDATE SET
-            units = user_units.units + $2,
-            last_updated = NOW()
-        `, [email, units]);
-
-        usdBalance -= amount_usd;
     }
-
     NextResponse.json({ message: 'Processed all investments with available balance.' });
   } catch (err) {
     console.error('Error processing investments:', err);
     NextResponse.json({ error: 'Failed to process investments' }, { status: 500 });
   }
+}
+
+export const POST = handler;
+
+export function OPTIONS(req: NextRequest) {
+    return applyCors(req) ?? NextResponse.json({});
 }

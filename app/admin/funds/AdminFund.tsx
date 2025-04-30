@@ -70,18 +70,9 @@ const AdminFundsPage = () => {
 
     const fetchAssets = async () => {
       try {
-        const res = await fetch('/api/asset-breakdown');
+        const res = await fetch(`/api/asset-breakdown?fundId=${selectedFund}`);
         if (!res.ok) throw new Error('Failed to fetch assets');
         const data = await res.json();
-
-        let totalValue = 0;
-        data.assets.forEach((a) => {
-          totalValue += parseFloat(a.value);
-        });
-
-        data.assets.forEach((a) => {
-          a.percentage = ((parseFloat(a.value) / totalValue) * 100).toFixed(2);
-        });
 
         setAssetAllocations(data.assets);
       } catch (err) {
@@ -92,7 +83,7 @@ const AdminFundsPage = () => {
     };
 
     fetchAssets();
-  }, [status]);
+  }, [status, selectedFund]);
 
   useEffect(() => {
     handleRefreshVIX();
@@ -130,8 +121,12 @@ const AdminFundsPage = () => {
 
   const handleRebalance = async () => {
     try {
-      const res = await fetch(`/api/admin/rebalance?fundId=${selectedFund}`, {
+      const res = await fetch('/api/admin/rebalance', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fundId: selectedFund }),
       });
       const result = await res.json();
       if (!res.ok || result.error){
@@ -225,7 +220,7 @@ const AdminFundsPage = () => {
           <motion.div variants={itemVariants}>
             <NavValueCard
               title="Total Units"
-              value={isLoading ? 'Loading...' : navData ? `$${parseFloat(navData.total_units).toFixed(7)}` : 'No data'}
+              value={isLoading ? 'Loading...' : navData ? `${parseFloat(navData.total_units).toFixed(7)}` : 'No data'}
               change={undefined}
             />
           </motion.div>
@@ -247,7 +242,7 @@ const AdminFundsPage = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {
+                {/* {
                   (() => {
                     const selected = funds.find(fund => fund.id === selectedFund);
                     if (!selected) return null;
@@ -269,54 +264,71 @@ const AdminFundsPage = () => {
                       </div>
                     ));
                   })()
-                }
-                
+                } */}
+                {assetAllocations.map((asset, index) => (
+                  <div key={index} className="space-y-2">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="font-medium">{asset.name}</span>
+                      <span>
+                        {asset.percentage}%
+                      </span>
+                    </div>
+                    <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${asset.percentage}%` }}
+                        transition={{ duration: 1, delay: index * 0.2 }}
+                        className="h-full bg-primary rounded-full"
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </motion.div>
 
           <motion.div variants={itemVariants} className="neo-card">
-          <h3 className="text-lg font-medium mb-4">Actions</h3>
+            <h3 className="text-lg font-medium mb-4">Actions</h3>
 
-<div className="space-y-4">
-  {/* VIX Display + Refresh */}
-  <div className="flex items-center justify-between">
-    <span className="text-sm text-muted-foreground">VIX (Volatility Index)</span>
-    <div className="flex items-center gap-2">
-      <span className="font-semibold">{vix !== null ? vix.toFixed(2) : '...'}</span>
-      <button
-        onClick={handleRefreshVIX}
-        className="text-xs text-primary hover:underline"
-      >
-        Refresh
-      </button>
-    </div>
-  </div>
+            <div className="space-y-4">
+              {/* VIX Display + Refresh */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">VIX (Volatility Index)</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">{vix !== null ? vix.toFixed(2) : '...'}</span>
+                  <button
+                    onClick={handleRefreshVIX}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Refresh
+                  </button>
+                </div>
+              </div>
 
-  {/* Force Rebalance */}
-  <button
-    onClick={handleRebalance}
-    className="w-full px-4 py-2 bg-primary text-white text-sm rounded hover:bg-primary/90 transition"
-  >
-    Force Rebalance
-  </button>
+              {/* Force Rebalance */}
+              <button
+                onClick={handleRebalance}
+                className="w-full px-4 py-2 bg-primary text-white text-sm rounded hover:bg-primary/90 transition"
+              >
+                Force Rebalance
+              </button>
 
-  {/* CSV Exports */}
-  <div className="space-y-2">
-    <button
-      onClick={handleExportLedgerCSV}
-      className="w-full px-4 py-2 border text-sm rounded hover:bg-accent"
-    >
-      Export Ledger CSV
-    </button>
-    <button
-      onClick={handleExportNavCSV}
-      className="w-full px-4 py-2 border text-sm rounded hover:bg-accent"
-    >
-      Export NAV History CSV
-    </button>
-  </div>
-</div>
+              {/* CSV Exports */}
+              <div className="space-y-2">
+                <button
+                  onClick={handleExportLedgerCSV}
+                  className="w-full px-4 py-2 border text-sm rounded hover:bg-accent"
+                >
+                  Export Ledger CSV
+                </button>
+                <button
+                  onClick={handleExportNavCSV}
+                  className="w-full px-4 py-2 border text-sm rounded hover:bg-accent"
+                >
+                  Export NAV History CSV
+                </button>
+              </div>
+            </div>
 
           </motion.div>
         </motion.div>

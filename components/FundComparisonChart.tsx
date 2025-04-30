@@ -56,6 +56,7 @@ const FundPerformanceMulti = () => {
 
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
+    console.log("data: ", rows.filter((row) => new Date(row.date) >= cutoff));
     return rows.filter((row) => new Date(row.date) >= cutoff);
   };
 
@@ -120,7 +121,15 @@ const FundPerformanceMulti = () => {
               />
               <YAxis
                 tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
-                tickFormatter={(v) => `$${(v / 1_000).toFixed(0)}k`}
+                tickFormatter={(v) => {
+                  if (v >= 1_000_000) {
+                    return `$${(v / 1_000_000).toFixed(1)}M`; // For millions
+                  } else if (v >= 1_000) {
+                    return `$${(v / 1_000).toFixed(1)}K`; // For thousands
+                  } else {
+                    return `$${v.toFixed(2)}`; // For smaller values
+                  }
+                }}
               />
               <Tooltip content={<CustomTooltip />} />
               {Object.entries(FUND_COLORS).map(([fundId, color]) => (

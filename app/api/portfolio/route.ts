@@ -12,17 +12,15 @@ async function handler(req: NextRequest) {
   if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
   const email = session.user.email;
-    console.log("email : ", email);
-  if (!email) {
-    return NextResponse.json({ error: "Missing 'email' query param" }, { status: 400 });
-  }
+
+  const { searchParams } = new URL(req.url);
+  const fundId = searchParams.get('fundId');
 
   try {
     const [navRes, unitsRes] = await Promise.all([
-      pool.query("SELECT nav FROM nav_history ORDER BY date DESC LIMIT 1"),
-      pool.query("SELECT units FROM user_units WHERE email = $1", [email])
+      pool.query("SELECT nav FROM nav_history WHERE fund_id = $1 ORDER BY date DESC LIMIT 1", [fundId]),
+      pool.query("SELECT units FROM user_units WHERE email = $1 AND fund_id = $2", [email, fundId])
     ]);
 
     if (navRes.rows.length === 0) {

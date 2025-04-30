@@ -18,21 +18,21 @@ async function handler(req: NextRequest) {
   try {
     const [investments, redemptions] = await Promise.all([
       pool.query(
-        `SELECT timestamp, amount_usd, units, asset_id, asset_share
-         FROM investment_ledger 
+        `SELECT timestamp, amount_usd, units, fund_id, status
+         FROM investment_log 
          WHERE email = $1 
          ORDER BY timestamp DESC`,
         [email]
       ),
       pool.query(
-        `SELECT timestamp, units, value_usd
-        FROM redemptions 
+        `SELECT timestamp, units, value_usd, fund_id, status
+        FROM redemption_log
         WHERE email = $1 
         ORDER BY timestamp DESC`,
         [email]
     )
   ]);
-
+  console.log("redemptions: ", redemptions);
   return NextResponse.json({
     email,
     investments: investments.rows,

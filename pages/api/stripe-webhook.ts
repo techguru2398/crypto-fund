@@ -3,21 +3,22 @@ import Stripe from 'stripe';
 import { buffer } from 'micro';
 import { pool } from '@/lib/db';
 import { getLatestNAV } from '@/lib/nav';
+import { excuteExchange } from '@/lib/coinbase';
 
 export const config = {
-    api: {
-      bodyParser: false,
-    },
-  };
+  api: {
+    bodyParser: false,
+  },
+};
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2022-11-15',
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    if (req.method !== 'POST') {
-        return res.status(405).send('Method Not Allowed');
-    } 
+  if (req.method !== 'POST') {
+      return res.status(405).send('Method Not Allowed');
+  } 
 
   const sig = req.headers['stripe-signature']!;
   let rawBody: Buffer;
@@ -42,31 +43,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   switch (event.type) {
     case 'payment_intent.succeeded': {
       const pi = event.data.object as Stripe.PaymentIntent;
-      console.log("amount_received: ", pi.amount_received);
       const metadata = pi.metadata || {};
       const email = metadata.user_email;
       const amount_usd = pi.amount_received / 100;
-      const nav = await getLatestNAV();
-
+      const nav = Number(metadata.nav);
+      const units = metadata.units;
+      const fund_id = metadata.fund_id;
+      
       if (metadata.type === 'sip') {
         console.log(`✅ SIP payment succeeded for ${email}`);
-        const units = amount_usd / nav;
-        await pool.query(
-          'INSERT INTO investment_log (email, amount_usd, nav, units, timestamp, status, is_sip) VALUES ($1, $2, $3, $4, NOW(), $5, $6)',
-          [email, amount_usd, nav, units, 'pending', true]
-        );
-        await logInvestment(email, amount_usd, units);
+        const result = await excuteExchange(email, amount_usd, parseFloat(units), fund_id);
+        if(result) {
+          await pool.query(
+            'INSERT INTO investment_log (email, amount_usd, nav, units, timestamp, status, is_sip, fund_id) VALUES ($1, $2, $3, $4, NOW(), $5, $6, $7)',
+            [email, amount_usd, nav, units, 'complete', true, fund_id]
+          );
+        } else {
+          await pool.query(
+            'INSERT INTO investment_log (email, amount_usd, nav, units, timestamp, status, is_sip, fund_id) VALUES ($1, $2, $3, $4, NOW(), $5, $6, $7)',
+            [email, amount_usd, nav, units, 'pending', true, fund_id]
+          );
+        }
       } else if (metadata.type === 'checkout') {
         console.log(`✅ Manual Checkout payment succeeded for ${email}`);
-        await pool.query(
-          'INSERT INTO investment_log (email, amount_usd, nav, units, timestamp, status, is_sip) VALUES ($1, $2, $3, $4, NOW(), $5, $6)',
-          [email, amount_usd, metadata.nav, metadata.units, 'pending', false]
-        );
-        await logInvestment(email, amount_usd, metadata.units);
+        const result = await excuteExchange(email, amount_usd, parseFloat(units), fund_id);
+        if(result) {
+          await pool.query(
+            'INSERT INTO investment_log (email, amount_usd, nav, units, timestamp, status, is_sip, fund_id) VALUES ($1, $2, $3, $4, NOW(), $5, $6, $7)',
+            [email, amount_usd, nav, units, 'complete', false, fund_id]
+          );
+        } else {
+          await pool.query(
+            'INSERT INTO investment_log (email, amount_usd, nav, units, timestamp, status, is_sip, fund_id) VALUES ($1, $2, $3, $4, NOW(), $5, $6, $7)',
+            [email, amount_usd, nav, units, 'pending', false, fund_id]
+          );
+        }
       } else {
         console.warn('⚠️ Unknown payment type – skipping');
       }
 
+      if (process.env.MODE = 'test') {
+        await pool.query(
+          'UPDATE mock_stripe SET balance = balance + $1, updated_at = NOW()',
+          [amount_usd]
+        );
+      }
       break;
     }
 
@@ -102,42 +123,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   return res.status(200).send('Webhook received');
-}
-
-// added for the test
-import axios from 'axios';
-
-const COINGECKO_MAP: Record<string, string> = {
-  BTC_TEST: 'bitcoin',
-  LTC_TEST: 'litecoin',
-};
-
-const INDEX_ALLOCATION = {
-  BTC_TEST: 0.5,
-  LTC_TEST: 0.5,
-};
-
-async function getPriceUSD(assetId: string): Promise<number> {
-  const id = COINGECKO_MAP[assetId];
-  const res = await axios.get(
-    `https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`
-  );
-  return res.data[id]?.usd ?? 0;
-}
-
-async function logInvestment(email, amountUSD, newUnits) {
-  for (const assetId of Object.keys(INDEX_ALLOCATION)) {
-    const share = INDEX_ALLOCATION[assetId];
-    const value = amountUSD * share;
-    const unitsAllocated = newUnits * share;
-
-    const price = await getPriceUSD(assetId);
-    const asset_value = value / price;
-    await pool.query(
-      `INSERT INTO investment_ledger (email, amount_usd, asset_id, asset_share, asset_value, units)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [email, value, assetId, share, asset_value, unitsAllocated]
-    );
-  }
-  console.log(`📘 Logged investment for ${email}`);
 }

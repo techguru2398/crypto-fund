@@ -64,6 +64,11 @@ export const authOptions: AuthOptions= {
 
   session: {
     strategy: "jwt",
+    maxAge: 60 * 60 * 24,
+  },
+
+  jwt: {
+    maxAge: 60 * 60 * 24, 
   },
 
   secret: process.env.NEXTAUTH_SECRET,
@@ -75,7 +80,6 @@ export const authOptions: AuthOptions= {
             const name = profile?.name;
 
             const res = await pool.query("SELECT * FROM user_info WHERE email = $1", [email]);
-
             if (res.rows.length === 0) {
                 const insertRes = await pool.query(
                     `INSERT INTO user_info (name, email, role) VALUES ($1, $2, $3) RETURNING id`,
@@ -91,13 +95,11 @@ export const authOptions: AuthOptions= {
                 token.name = res.rows[0].name;
                 token.role = res.rows[0].role;
             }
-        }
-
-        if (user) {
+        } else if (user) {
             token.id = user.id;
             token.name = user.name;
             token.email = user.email;
-            token.role = "user";
+            token.role = user.role;
         }
         return token;
     },

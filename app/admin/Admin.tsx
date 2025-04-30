@@ -13,13 +13,42 @@ import FundComparisonChart from '@/components/FundComparisonChart';
 const AdminDashboard = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('funds');
+  const [totalUsers, setTotalUsers] = useState('0');
+  const [totalFunds, setTotalFunds] = useState('0');
+  const [totalSips, setTotalSips] = useState('0');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/signin');
     }
   }, [status, router]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    const fetchBriefData = async () => {
+      setIsLoading(true);
+      try {
+        const res = await fetch(`/api/admin/brief`);
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          setTotalUsers("Failed get data");
+          setTotalFunds("Failed get data");
+          setTotalSips("Failed get data");
+        }
+        else {
+          setTotalUsers(data.users);
+          setTotalFunds(data.funds);
+          setTotalSips(data.sips);
+        }
+      } catch (err) {
+        console.error('❌ Get Brief Error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchBriefData();
+  }, [status]);
 
   const sectionVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -46,43 +75,15 @@ const AdminDashboard = () => {
         </motion.header>
 
         <motion.section variants={sectionVariants} initial="hidden" animate="visible" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-10">
-          <AdminCard icon={<Users />} title="Users" value="345" link="/admin/users" />
-          <AdminCard icon={<BarChart3 />} title="Funds" value="$2.5M" link="/admin/funds" />
-          <AdminCard icon={<ShieldCheck />} title="SIPs Active" value="128" link="/admin/sips" />
+          <AdminCard icon={<Users />} title="Users" value={isLoading ? 'Loading...' : totalUsers } link="/admin/users" />
+          <AdminCard icon={<BarChart3 />} title="Funds" value={isLoading ? 'Loading...' : totalFunds } link="/admin/funds" />
+          <AdminCard icon={<ShieldCheck />} title="SIPs Active" value={isLoading ? 'Loading...' : totalSips } link="/admin/sips" />
         </motion.section>
 
         <motion.section variants={sectionVariants} initial="hidden" animate="visible" className="mb-10">
           <FundComparisonChart />
         </motion.section>
 
-        {/* <Tabs defaultValue="funds" value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="mb-6">
-            <TabsTrigger value="funds">Funds</TabsTrigger>
-            <TabsTrigger value="sips">SIPs</TabsTrigger>
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="logs">Logs</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="funds">
-          <h2 className="text-xl font-semibold mb-4">Fund Overview</h2>
-          <FundTable />
-          </TabsContent>
-
-          <TabsContent value="sips">
-          <h2 className="text-xl font-semibold mb-4">Systematic Investment Plans (SIPs)</h2>
-          <SIPTable />
-          </TabsContent>
-
-          <TabsContent value="users">
-          <h2 className="text-xl font-semibold mb-4">Users</h2>
-          <UserTable />
-          </TabsContent>
-
-          <TabsContent value="logs">
-          <h2 className="text-xl font-semibold mb-4">Transaction Logs</h2>
-          <TransactionLogTable />
-          </TabsContent>
-        </Tabs> */}
       </div>
     </div>
   );

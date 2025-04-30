@@ -66,18 +66,9 @@ useEffect(() => {
 
   const fetchAssets = async () => {
     try {
-      const res = await fetch('/api/asset-breakdown');
+      const res = await fetch(`/api/asset-breakdown?fundId=${selectedFund}`);
       if (!res.ok) throw new Error('Failed to fetch assets');
       const data = await res.json();
-
-      let totalValue = 0;
-      data.assets.forEach((a) => {
-        totalValue += parseFloat(a.value);
-      });
-
-      data.assets.forEach((a) => {
-        a.percentage = ((parseFloat(a.value) / totalValue) * 100).toFixed(2);
-      });
 
       setAssetAllocations(data.assets);
     } catch (err) {
@@ -88,7 +79,7 @@ useEffect(() => {
   };
 
   fetchAssets();
-}, [status]);
+}, [status, selectedFund]);
   
   // Animation variants for Framer Motion
   const containerVariants = {
@@ -169,8 +160,8 @@ useEffect(() => {
 
           <motion.div variants={itemVariants}>
             <NavValueCard
-              title="Your Units"
-              value={isLoading ? 'Loading...' : navData ? `$${parseFloat(navData.total_units).toFixed(7)}` : 'No data'}
+              title="Total Units"
+              value={isLoading ? 'Loading...' : navData ? `${parseFloat(navData.total_units).toFixed(7)}` : 'No data'}
               change={undefined}
             />
           </motion.div>
@@ -192,30 +183,7 @@ useEffect(() => {
               </div>
             ) : (
               <div className="space-y-4">
-                {
-                  (() => {
-                    const selected = funds.find(fund => fund.id === selectedFund);
-                    if (!selected) return null;
-
-                    return selected.asset_ids.map((asset, index) => (
-                      <div key={index} className="space-y-2">
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="font-medium">{asset}</span>
-                          <span>{selected.normal_weight[index] * 100}%</span>
-                        </div>
-                        <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${selected.normal_weight[index] * 100}%` }}
-                            transition={{ duration: 1, delay: index * 0.2 }}
-                            className="h-full bg-primary rounded-full"
-                          />
-                        </div>
-                      </div>
-                    ));
-                  })()
-                }
-                {/* {assetAllocations.map((asset, index) => (
+                {assetAllocations.map((asset, index) => (
                   <div key={index} className="space-y-2">
                     <div className="flex justify-between items-center text-sm">
                       <span className="font-medium">{asset.name}</span>
@@ -232,7 +200,7 @@ useEffect(() => {
                       />
                     </div>
                   </div>
-                ))} */}
+                ))}
               </div>
             )}
           </motion.div>

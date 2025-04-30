@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
 
   try {
     for (const fund of funds) {
-      await rebalancePortfolio(fund.id);
+      await rebalancePortfolio(fund.id, false);
     }
     return NextResponse.json({ status: 'Rebalance triggered' });
   } catch (err: any) {

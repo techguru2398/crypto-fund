@@ -14,6 +14,10 @@
     },
     {
       "schedule": "0 4 * * *",
+      "path": "/api/bank-to-exchange"
+    },
+    {
+      "schedule": "0 4 * * *",
       "path": "/api/process-exchange"
     }
   ]

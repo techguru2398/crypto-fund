@@ -114,14 +114,20 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({
               </defs>
               <XAxis 
                 dataKey="date" 
-                axisLine={false} 
-                tickLine={false} 
                 tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
                 dy={10}
               />
-              <YAxis 
-                hide={true} 
-                domain={['dataMin - 100', 'dataMax + 100']} 
+              <YAxis
+                tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                tickFormatter={(v) => {
+                  if (v >= 1_000_000) {
+                    return `$${(v / 1_000_000).toFixed(1)}M`; // For millions
+                  } else if (v >= 1_000) {
+                    return `$${(v / 1_000).toFixed(1)}K`; // For thousands
+                  } else {
+                    return `$${v.toFixed(2)}`; // For smaller values
+                  }
+                }}
               />
               <Tooltip content={<CustomTooltip />} />
               <Area 
